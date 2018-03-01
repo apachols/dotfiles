@@ -1,0 +1,9 @@
+eval "$(pyenv init -)"
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+# eval "$(pyenv virtualenv-init -)"
+
+export DOCKER_BETA=1
+source $HOME/projects/web/profile
+
+alias web='cd ~/projects/web'
