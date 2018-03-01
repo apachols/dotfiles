@@ -1,6 +1,3 @@
-# eval "$(pyenv init -)"
-# eval "$(pyenv virtualenv-init -)"
-
 PATH="/usr/local/bin:$PATH"
 
 export GREP_OPTIONS="--color=auto"
