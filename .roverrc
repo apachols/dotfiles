@@ -6,4 +6,75 @@ export PATH="$PYENV_ROOT/bin:$PATH"
 export DOCKER_BETA=1
 source $HOME/projects/web/profile
 
+alias sp='m shell_plus'
 alias web='cd ~/projects/web'
+alias fe='cd ~/projects/web/src/frontend'
+
+cd ~/projects/web
+
+
+# Watch that all the files in your current branch are being docker-sync'd correctly
+function docker.sync.canary {
+    # colors
+    style_reset="\e[0m"
+    style_ok="${style_reset}\e[32m"
+    style_fail="${style_reset}\e[31m"
+
+    BRANCH=`git rev-parse --abbrev-ref HEAD`
+    echo "- - - - - - - - - - -"
+    echo "watching for docker-sync errors on $BRANCH"
+
+    FILES=()
+    OLDFILES=""
+    while true; do
+
+        # for all files in the current diff and all changed files in branch commits
+        local IFS=$'\n'
+        FILES=( `(git status --porcelain | grep -v 'D ' | sed s/^...// && git diff --name-status origin/master...HEAD | grep -v 'D ' | sed s/^..//) | sort -u` )
+
+        # print the files when the script starts
+        if [[ "${FILES[@]}" != "${OLDFILES}" ]]; then
+            printf "\n- - - - - - - - - - -\n watching these files:\n"
+            for ((i = 0; i < ${#FILES[@]}; i++)); do
+                printf "  - %s\n" "${FILES[$i]}"
+            done
+            printf -- "- - - - - - - - - - -\n\n"
+        fi
+        OLDFILES="${FILES[@]}"
+
+        # test if the files are different between docker-sync and local
+        ERRORS=()
+        for ((i = 0; i < ${#FILES[@]}; i++)); do
+            ERROR="$(docker.sync.canary.check "${FILES[$i]}" 2>&1)"
+            if [[ ! -z $ERROR ]]; then
+                ERRORS[${#ERRORS[@]}+1]="$ERROR\n"
+            fi
+        done
+
+        TIME="`date +%H:%M:%S`"
+        if [[ ${#ERRORS[@]} -gt 0 ]]; then
+            printf "\ndocker-sync-canary %s ${style_fail}%s${style_reset}\n" "$TIME" "FAIL"
+            for ((i = 0; i <= ${#FILES[@]}; i++)); do
+                TEMP="${ERRORS[$i]}"
+                printf "${TEMP%$'\n'}" | sed -E 's/^/  * /g'
+            done
+            sleep 5 # check back sooner if failed
+        else
+            printf "docker-sync-canary %s ${style_ok}%s${style_reset}\n" "$TIME" "OK"
+            sleep 30
+        fi
+
+    done
+}
+
+function docker.sync.canary.check {
+
+    if [[ "$1" =~ ^src/frontend/app/ ]]; then
+        diff -q "$1" <(docker exec "frontend-app-sync" cat "/host_sync/${1#src/frontend/app/}")
+        diff -q "$1" <(docker exec "frontend-app-sync" cat "/app_sync/${1#src/frontend/app/}")
+    else
+        diff -q "$1" <(docker exec "web-root-sync" cat "/host_sync/$1")
+        diff -q "$1" <(docker exec "web-root-sync" cat "/app_sync/$1")
+    fi
+
+}
