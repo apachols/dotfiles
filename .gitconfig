@@ -7,4 +7,4 @@
 
 [alias]
 	pu = push -u origin HEAD
-        br = branch --sort=-committerdate
+	br = branch --sort=-committerdate
