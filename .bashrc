@@ -23,7 +23,6 @@ alias ll='ls -AlG'
 alias s='subl'
 alias a='atom'
 alias v='code -r'
-alias wheres='find . -iname'
 
 alias gitdiff='git diff --color'
 alias gitchgs='git diff --color origin/master...HEAD'
@@ -40,6 +39,11 @@ alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
 function remote()
 {
   git remote -v | grep fetch | awk '{print $2}';
+}
+
+function wheres()
+{
+ find . -iname "*$1";
 }
 
 function diffbranches()
