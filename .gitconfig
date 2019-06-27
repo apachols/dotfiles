@@ -4,3 +4,7 @@
 
 [core]
 	editor = nano
+
+[alias]
+	pu = push -u origin HEAD
+        br = branch --sort=-committerdate

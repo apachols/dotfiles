@@ -1,0 +1,41 @@
+eval "$(pyenv init -)"
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+# eval "$(pyenv virtualenv-init -)"
+
+export DOCKER_BETA=osxfs
+# export DOCKER_BETA=1
+source $HOME/projects/web/profile
+
+alias sp='m shell_plus'
+alias web='cd ~/projects/web'
+alias prod='ssh -t util.us-west-2.prod.internal.rover.com -- sudo su - rover manage'
+alias blogs='dc logs --tail 100 web'
+alias flogs='dc logs --tail 100 frontend'
+alias slogs='dc logs -f ssr'
+alias ios='open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
+alias pruned='docker system prune -f'
+
+cd ~/projects/web
+
+export ROVER_AWS_FEDERATION_ROLE="arn:aws:iam::401027316804:role/FederatedDeveloper"
+
+function dev {
+    git checkout DEV-$1
+}
+
+# alias watcher='dc run --name web_testwatcher --rm -e SQLITE=1 web bash'
+#
+# function tw {
+#     find . -name '*.py' | entr -c docker exec -it $(docker ps -aqf 'name=web_testwatcher') ./manage.py jenkins --skip-tasks -p '*_tests.py' --output-dir='/web/reports' "$@"
+# }
+
+#
+# Reasons this doesn't work:
+# - doesn't pick up changes from the local fs, but changes from inside container are ok :|
+# - entr: unable to stat './reviews/__init__.py\r', and i can't seem to remove the \r using sed
+#
+# dc run --name web_testwatcher --rm -e SQLITE=1 web bash
+#   wget http://entrproject.org/code/entr-4.0.tar.gz && tar -xvf entr-4.0.tar.gz --directory /web/entr_install && cd /web/entr_install && ./configure && make install
+# alias testwatch="docker exec -it $(docker ps -aqf 'name=web_testwatcher') find . -name '*.py' | sed 's/\r$//' | entr date"
+#
