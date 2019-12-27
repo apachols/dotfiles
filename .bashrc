@@ -32,6 +32,9 @@ alias yargs='xargs -n 1'
 
 alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
 
+alias ssr='INTERNAL_ASSETS_ROOT=/Users/adampacholski/projects/web/src/frontend/react-app/dist NODE_ENV=development PORT=9009 WEBAPP_ROOT_URL=http://127.0.0.1:8000 yarn dev'
+alias slack='export SLACK_DEVELOPER_MENU=true && open -a /Applications/Slack.app'
+
 #
 # FUNCTION TOWN
 #
