@@ -8,6 +8,8 @@ export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 export DOCKER_BETA=osxfs
 source $HOME/projects/web/profile
 
+export GREP_OPTIONS="--color=auto"
+
 alias sp='m shell_plus'
 alias web='cd ~/projects/web'
 alias ra='cd ~/projects/web/src/frontend/react-app'
