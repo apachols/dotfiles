@@ -20,6 +20,8 @@ alias slogs='dc logs -f ssr'
 alias ios='open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
 alias pruned='docker system prune -f'
 
+alias vmaws='scp -r ~/.aws/* dev@vmdev:~/.aws'
+
 alias ssr='INTERNAL_ASSETS_ROOT=/Users/adampacholski/projects/web/src/frontend/react-app/dist NODE_ENV=development PORT=9009 WEBAPP_ROOT_URL=http://127.0.0.1:8000 yarn dev'
 
 cd ~/projects/web
