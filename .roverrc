@@ -7,8 +7,11 @@ export DOCKER_BETA=osxfs
 # export DOCKER_BETA=1
 source $HOME/projects/web/profile
 
+alias killdrive='ps -ef | grep "Google Drive File Stream" | grep -v grep | awk "{print $2}" | xargs kill'
+
 alias sp='m shell_plus'
 alias web='cd ~/projects/web'
+alias ra='cd ~/projects/web/src/frontend/react-app'
 alias prod='ssh -t util.us-west-2.prod.internal.rover.com -- sudo su - rover manage'
 alias blogs='dc logs --tail 100 web'
 alias flogs='dc logs --tail 100 frontend'
@@ -20,7 +23,7 @@ cd ~/projects/web
 
 export ROVER_AWS_FEDERATION_ROLE="arn:aws:iam::401027316804:role/FederatedDeveloper"
 
-function dev {
+function tkt {
     git checkout DEV-$1
 }
 

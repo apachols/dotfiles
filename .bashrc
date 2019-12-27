@@ -40,6 +40,7 @@ alias rabble='cd ~/git/rabble'
 
 # Added by serverless binary installer
 export PATH="$HOME/.serverless/bin:$PATH"
+alias slack='export SLACK_DEVELOPER_MENU=true && open -a /Applications/Slack.app'
 
 #
 # FUNCTION TOWN
