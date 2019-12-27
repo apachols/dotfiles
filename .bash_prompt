@@ -1,1 +1,1 @@
-PS1='\n\[\e[1;31m\]($(git branch 2>/dev/null | grep '^*' | colrm 1 2))\[\e[m\]\[\033[0;32m\] \w \n \$ \[\033[00m\]'
+PS1='\n\[\e[1;$BRANCH_COLOR\]($(git branch 2>/dev/null | grep '^*' | colrm 1 2))\[\e[m\]\[\033[0;32m\] \w \n \$ \[\033[00m\]'

@@ -1,5 +1,7 @@
 source ~/.bashrc
 
+export BRANCH_COLOR='36m'
+
 export PATH="$HOME/.pyenv/bin:$PATH"
 export PATH="~/.pyenv/versions/3.6.8/bin:$PATH"
 
