@@ -7,6 +7,7 @@ export GREP_OPTIONS="--color=auto"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 #
 # ALIAS
@@ -20,20 +21,15 @@ bind '"\e\e[C": forward-word'
 bind '"\e\e[D": backward-word'
 
 alias ll='ls -AlG'
-alias s='subl'
-alias a='atom'
 alias v='code -r'
 
 alias gitdiff='git diff --color'
 alias gitchgs='git diff --color origin/master...HEAD'
-alias branch='echo $(__git_ps1) | pbcopy'
+alias branch="echo $(git branch 2>/dev/null | grep '^*' | colrm 1 2) | pbcopy"
 
 alias yargs='xargs -n 1'
 
 alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
-
-alias ssr='INTERNAL_ASSETS_ROOT=/Users/adampacholski/projects/web/src/frontend/react-app/dist NODE_ENV=development PORT=9009 WEBAPP_ROOT_URL=http://127.0.0.1:8000 yarn dev'
-alias slack='export SLACK_DEVELOPER_MENU=true && open -a /Applications/Slack.app'
 
 #
 # FUNCTION TOWN
@@ -47,25 +43,6 @@ function remote()
 function wheres()
 {
  find . -iname "*$1";
-}
-
-function diffbranches()
-{
-  if [[ -z "$1" ]] ; then
-    b1='origin/master'
-  else
-    b1="$1"
-  fi
-  if [[ -z "$2" ]] ; then
-    b2='HEAD'
-  else
-    b2="$2"
-  fi
-  repo=$( git remote -v | awk -F':' '/fetch/{print $2;}' | awk '{print $1;}' | sed s/.git//g )
-  hB1=$(git rev-parse --short $b1)
-  hB2=$(git rev-parse --short $b2)
-  link="https://gitweb.realsecure.flyingcroc.net/?p=$repo.git;a=commitdiff;hp="$hB1';h='$hB2
-  echo $link
 }
 
 function gitfiles()

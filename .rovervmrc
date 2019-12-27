@@ -1,0 +1,25 @@
+source ~/.bashrc
+
+export PATH="$HOME/.pyenv/bin:$PATH"
+export PATH="~/.pyenv/versions/3.6.8/bin:$PATH"
+
+cd ~/projects/web
+source profile
+
+export ROVER_AWS_FEDERATION_ROLE="arn:aws:iam::401027316804:role/FederatedDeveloper"
+export WEBAPP_ROOT_URL=http://localhost:8001
+
+eval "$(pyenv init -)"
+
+alias sp='m shell_plus'
+alias web='cd ~/projects/web'
+alias ra='cd ~/projects/web/src/frontend/react-app'
+alias blogs='dc logs --tail 100 web'
+alias flogs='dc logs --tail 100 frontend'
+alias slogs='dc logs -f ssr'
+
+alias pruned='docker system prune -f'
+
+function tkt {
+    git checkout DEV-$1
+}
