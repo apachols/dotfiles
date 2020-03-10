@@ -32,9 +32,17 @@ alias yargs='xargs -n 1'
 
 alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
 
+# Added by serverless binary installer
+export PATH="$HOME/.serverless/bin:$PATH"
+
 #
 # FUNCTION TOWN
 #
+
+function ogg()
+{
+  ffmpeg -i "$1" -c:a libvorbis -qscale:a 3 output.ogg
+}
 
 function remote()
 {
