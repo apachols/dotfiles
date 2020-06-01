@@ -10,19 +10,27 @@ source $HOME/projects/web/profile
 
 export GREP_OPTIONS="--color=auto"
 
+export GEMFURY_API_TOKEN="GsM1tgeGkNyFHkFYd5qc"
+export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
+
+export BASH_SILENCE_DEPRECATION_WARNING=1
+
+alias prod='echo "sudo su - rover manage"; ssh-rover util.us-west-2.prod.internal.rover.com'
+
+alias dmy='dmypy run -- --follow-imports=skip --show-error-codes src/aplaceforrover'
 alias sp='m shell_plus'
 alias web='cd ~/projects/web'
 alias ra='cd ~/projects/web/src/frontend/react-app'
-alias prod='ssh -t util.us-west-2.prod.internal.rover.com -- sudo su - rover manage'
 alias blogs='dc logs --tail 100 web'
 alias flogs='dc logs --tail 100 frontend'
 alias slogs='dc logs -f ssr'
 alias ios='open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
 alias pruned='docker system prune -f'
+alias eks='eks-ui staging-a'
 
 alias vmaws='scp -r ~/.aws/* dev@vmdev:~/.aws'
 
-alias ssr='INTERNAL_ASSETS_ROOT=/Users/adampacholski/projects/web/src/frontend/react-app/dist NODE_ENV=development PORT=9009 WEBAPP_ROOT_URL=http://127.0.0.1:8000 yarn dev'
+alias ssr='RA_PATH=${HOME}/projects/web/src/frontend/react-app; cd $RA_PATH && INTERNAL_ASSETS_ROOT=${RA_PATH}/dist NODE_ENV=development PORT=9009 WEBAPP_ROOT_URL=http://127.0.0.1:8000 yarn dev'
 
 cd ~/projects/web
 
