@@ -36,7 +36,7 @@ alias blogs='dc logs --tail 100 web'
 alias flogs='dc logs --tail 100 frontend'
 alias slogs='dc logs -f ssr'
 alias ios='open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
-alias pruned='docker system prune -f && docker image prune -af'
+alias pruned='docker system prune -f && docker image prune -a'
 alias eks='eks-ui staging-a'
 
 alias vmaws='scp -r ~/.aws/* dev@vmdev:~/.aws'
