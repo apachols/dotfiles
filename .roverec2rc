@@ -7,15 +7,11 @@ export GREP_OPTIONS="--color=auto"
 export GEMFURY_API_TOKEN="GsM1tgeGkNyFHkFYd5qc"
 export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
 
-export PATH="$HOME/.pyenv/bin:$PATH"
-export PATH="~/.pyenv/versions/3.6.8/bin:$PATH"
-
-eval "$(pyenv init -)"
-
 cd ~/workspace/web
 source profile
 
 alias sp='m shell_plus'
+
 alias web='cd ~/projects/web'
 
 alias pruned='docker system prune -f'
