@@ -12,6 +12,6 @@ source profile
 
 alias sp='m shell_plus'
 
-alias web='cd ~/projects/web'
+alias web='cd ~/workspace/web'
 
 alias pruned='docker system prune -f'
