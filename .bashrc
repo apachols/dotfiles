@@ -5,8 +5,6 @@ export NVM_DIR="$HOME/.nvm"
 
 export BASH_SILENCE_DEPRECATION_WARNING=1
 
-export GREP_OPTIONS="--color=auto"
-
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
@@ -14,6 +12,8 @@ export NVM_DIR="$HOME/.nvm"
 #
 # ALIAS
 #
+
+alias grep="grep --color=auto"
 
 alias ..="cd .."
 alias ...="cd ../.."
