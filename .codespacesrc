@@ -1,0 +1,17 @@
+source ~/.bashrc
+
+export BRANCH_COLOR='36m'
+
+alias grep="grep --color=auto"
+
+export GEMFURY_API_TOKEN="GsM1tgeGkNyFHkFYd5qc"
+export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
+
+cd /workspaces/web
+source profile
+
+alias sp='m shell_plus'
+
+alias web='cd /workspaces/web'
+
+alias pruned='docker system prune -f'

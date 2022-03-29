@@ -20,11 +20,12 @@ alias v='code -r'
 
 alias gitdiff='git diff --color'
 alias gitchgs='git diff --color origin/master...HEAD'
-alias branch="echo $(git branch 2>/dev/null | grep '^*' | colrm 1 2) | pbcopy"
 
 alias yargs='xargs -n 1'
 
-alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
+# OSX Specific
+# alias branch="echo $(git branch 2>/dev/null | grep '^*' | colrm 1 2) | pbcopy"
+# alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
 
 alias ngrok='/Applications/ngrok'
 
