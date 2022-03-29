@@ -8,3 +8,5 @@
 [alias]
 	pu = push -u origin HEAD
 	br = branch --sort=-committerdate
+[pull]
+	rebase = true

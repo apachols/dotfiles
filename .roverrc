@@ -33,6 +33,7 @@ alias prod='echo "$TMUX"; ssh-rover webapp-shell.us-west-2.prod.internal.rover.c
 
 ulimit -n 524288
 
+alias dev='ssh devenv'
 alias sp='m shell_plus'
 alias web='cd ~/projects/web'
 
