@@ -1,6 +1,8 @@
 #
-# ALIAS
+# D'OH
 #
+
+export PATH="/Users/adamp/.pyenv/shims:${PATH}"
 
 export NVM_DIR="$HOME/.nvm"
 . "$NVM_DIR/nvm.sh"
