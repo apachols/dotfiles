@@ -5,7 +5,7 @@ export BRANCH_COLOR='31m'
 DOTFILES_PATH="$HOME/git/dotfiles/"
 [ $USER = 'vscode' ] && DOTFILES_PATH="/workspaces/.codespaces/.persistedshare/dotfiles/"
 
-# Next, load the dotfiles appropriate to environment.  Each of these sources .bashrc
+# Next, load the dotfiles appropriate to environment
 [ $USER = 'adampacholski' ] && source "$DOTFILES_PATH.roverrc"
 [ $USER = 'dev' ] && source "$DOTFILES_PATH.roverec2rc"
 [ $USER = 'adamp' ] && source "$DOTFILES_PATH.homerc"
