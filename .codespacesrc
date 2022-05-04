@@ -1,5 +1,3 @@
-source ~/.bashrc
-
 export BRANCH_COLOR='36m'
 
 alias grep="grep --color=auto"
@@ -15,3 +13,6 @@ alias sp='m shell_plus'
 alias web='cd /workspaces/web'
 
 alias pruned='docker system prune -f'
+
+login-ecr
+init-volumes
