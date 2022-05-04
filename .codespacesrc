@@ -13,6 +13,3 @@ alias sp='m shell_plus'
 alias web='cd /workspaces/web'
 
 alias pruned='docker system prune -f'
-
-login-ecr
-init-volumes
