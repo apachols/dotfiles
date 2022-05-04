@@ -15,5 +15,3 @@ alias sp='m shell_plus'
 alias web='cd /workspaces/web'
 
 alias pruned='docker system prune -f'
-
-alias src='source /home/vscode/.bash_profile'
