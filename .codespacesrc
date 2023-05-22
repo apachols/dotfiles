@@ -2,6 +2,8 @@ export BRANCH_COLOR='36m'
 
 alias grep="grep --color=auto"
 
+export WEB='workspaces/web'
+
 export GEMFURY_API_TOKEN="GsM1tgeGkNyFHkFYd5qc"
 export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
 
@@ -13,3 +15,8 @@ alias sp='m shell_plus'
 alias web='cd /workspaces/web'
 
 alias pruned='docker system prune -f'
+
+function personalize {
+    cp -f $HOME/git/dotfiles/personal.py $HOME/$WEB/src/aplaceforrover/rover/settings/personal.py
+    echo "copied personal.py to $HOME/$WEB/src/aplaceforrover/rover/settings/personal.py"
+}
