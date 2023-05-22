@@ -51,3 +51,8 @@ function gitfiles()
   fi
   git diff --name-only origin/$target...HEAD
 }
+
+function personalize {
+    cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
+    echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
+}
