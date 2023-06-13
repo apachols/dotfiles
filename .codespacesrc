@@ -8,6 +8,10 @@ export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
 cd /workspaces/web
 source profile
 
+# do not track changes to .vscode/settings.json
+# allows peacock color changes without git tracking
+git update-index --skip-worktree .vscode/settings.json
+
 alias sp='m shell_plus'
 
 alias web="cd $WEB"
