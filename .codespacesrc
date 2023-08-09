@@ -17,3 +17,5 @@ alias sp='m shell_plus'
 alias web="cd $WEB"
 
 alias pruned='docker system prune -f'
+
+alias elasticsearch='docker run -p 9100:9100 mobz/elasticsearch-head:5'
