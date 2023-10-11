@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Create symlink for .bash_profile
-ln -s /workspaces/.codespaces/.persistedshare/dotfiles/.bash_profile /home/vscode/.bash_profile
+ln -s /workspaces/.codespaces/.persistedshare/dotfiles/.bash_profile /home/$USER/.bash_profile
 
-echo "source /home/vscode/.bash_profile" >> /home/vscode/.bashrc
+echo "source /home/$USER/.bash_profile" >> /home/$USER/.bashrc
 
-cat /workspaces/.codespaces/.persistedshare/dotfiles/.gitconfig >> /home/vscode/.gitconfig
+cat /workspaces/.codespaces/.persistedshare/dotfiles/.gitconfig >> /home/$USER/.gitconfig
