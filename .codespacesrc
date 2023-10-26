@@ -19,3 +19,9 @@ alias web="cd $WEB"
 alias pruned='docker system prune -f'
 
 alias elasticsearch='docker run -p 9100:9100 mobz/elasticsearch-head:5'
+
+export PRE_COMMMIT_ENABLED=1
+
+function dcps {
+    dc ps  --format='table {{ .Name }}\t{{ .Status }}'
+}
