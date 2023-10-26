@@ -25,18 +25,29 @@ MEGATRON_TASKS_ENABLED = True
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
-
+###
+# Avoid strange behavior due to replica lag when using the Production DB replica
+# https://roverdotcom.atlassian.net/wiki/spaces/TECH/pages/395477248/The+Performance+Environment#ThePerformanceEnvironment-Overridedjangosettings
+###
+#
+# REPLICA_DB_ALIAS = 'default'
+#
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
 # import os
 # PTVSD_DEBUG = os.environ.get('PTVSD_DEBUG') == "1"
-
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
 # Needed for developing metrics / dashboards / monitors locally
 # https://roverdotcom.atlassian.net/wiki/spaces/TECH/pages/1120964125/Local+Development+of+Metrics+Dashboards+and+Monitors
-
+#
 # Use this to debug local statsd metrics to Rover.com-Dev organization
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 # THREADSTATSD_DEVELOPER_TAG = 'adamp'
 # STATSD_CLIENT = 'systems.datadog.statsd.ThreadStatsD'
-
+#
 # Use this to print out statsd metrics locally
 # = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =
 # STATSD_CLIENT = 'systems.statsd.pystatsd.PyStatsD'
