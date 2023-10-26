@@ -7,6 +7,8 @@ export NVM_DIR="$HOME/.nvm"
 
 PATH=$PATH:~/Library/Android/sdk/platform-tools
 
+export PRE_COMMMIT_ENABLED=1
+
 export ANDROID_HOME=~/Library/Android/sdk
 export JAVA_HOME=/Applications/Android\ Studio.app/Contents/jre/Contents/Home
 
