@@ -5,15 +5,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
-PATH=$PATH:~/Library/Android/sdk/platform-tools
-
-export ANDROID_HOME=~/Library/Android/sdk
-export JAVA_HOME=/Applications/Android\ Studio.app/Contents/jre/Contents/Home
-
-eval "$(pyenv init -)"
-export PYENV_ROOT="$HOME/.pyenv"
-export PATH="$PYENV_ROOT/bin:$PATH"
-
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.yarn/bin:$HOME/.config/yarn/global/node_modules/.bin:$PATH"
 export PATH="/usr/local/bin:$PATH"
@@ -21,7 +12,17 @@ export PATH="/usr/local/bin:$PATH"
 eval "$(/opt/homebrew/bin/brew shellenv)"
 
 export DOCKER_BETA=osxfs
-source $WEB/profile
+
+# PATH=$PATH:~/Library/Android/sdk/platform-tools
+
+# export ANDROID_HOME=~/Library/Android/sdk
+# export JAVA_HOME=/Applications/Android\ Studio.app/Contents/jre/Contents/Home
+
+# eval "$(pyenv init -)"
+# export PYENV_ROOT="$HOME/.pyenv"
+# export PATH="$PYENV_ROOT/bin:$PATH"
+
+# source $WEB/profile
 
 alias grep="grep --color=auto"
 
@@ -36,19 +37,19 @@ alias prod='echo "$TMUX"; ssh-rover webapp-shell.us-west-2.prod.internal.rover.c
 
 ulimit -n 524288
 
-alias dev='ssh devenv'
+# alias dev='ssh devenv'
 alias sp='m shell_plus'
 alias web="cd $WEB"
 
-alias ios='open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
-alias pruned='docker system prune -f && docker image prune -a'
-alias eks='eks-ui staging-a'
+# alias ios='open /Applications/Xcode.app/Contents/Developer/Applications/Simulator.app'
+# alias pruned='docker system prune -f && docker image prune -a'
+# alias eks='eks-ui staging-a'
 
-cd $WEB
+# cd $WEB
 
-export ROVER_AWS_FEDERATION_ROLE="arn:aws:iam::401027316804:role/FederatedDeveloper"
+# export ROVER_AWS_FEDERATION_ROLE="arn:aws:iam::401027316804:role/FederatedDeveloper"
 
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+# export NVM_DIR="$HOME/.nvm"
+# [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+# [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
