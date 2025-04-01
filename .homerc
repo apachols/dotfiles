@@ -17,6 +17,9 @@ alias rabble='cd ~/git/rabble'
 export PATH="$HOME/.serverless/bin:$PATH"
 alias slack='export SLACK_DEVELOPER_MENU=true && open -a /Applications/Slack.app'
 
+# Need this for homebrew now apparently
+export PATH=/opt/homebrew/bin:$PATH
+
 #
 # FUNCTION TOWN
 #
