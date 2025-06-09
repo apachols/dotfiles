@@ -29,6 +29,16 @@ alias yargs='xargs -n 1'
 
 alias ngrok='/Applications/ngrok'
 
+alias python='python3'
+
+alias pip='pip3'
+
+# Added by OrbStack: command-line tools and integration
+# This won't be added again if you remove it.
+source ~/.orbstack/shell/init.bash 2>/dev/null || :
+
+alias dc='docker-compose'
+
 #
 # FUNCTION TOWN
 #
