@@ -1,6 +1,7 @@
 import sys
 import subprocess
 
+
 query = sys.argv[1]
 
 
@@ -10,6 +11,8 @@ def write_to_clipboard(output):
     process.communicate(output.encode('utf-8'))
 
 
-write_to_clipboard(
-    query.replace('https://', '').replace('http://', '')
-)
+output = query.replace('https://', '').replace('http://', '').replace('', '')
+
+write_to_clipboard(output)
+
+print(output)

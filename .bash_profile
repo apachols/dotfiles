@@ -12,8 +12,7 @@ DOTFILES_PATH="$HOME/git/dotfiles"
 [ $USER = 'codespace' ] && WEB="/workspaces/web"
 
 # Next, load the dotfiles appropriate to environment
-[ $USER = 'adampacholski' ] && source "$DOTFILES_PATH/.roverrc"
-[ $USER = 'dev' ] && source "$DOTFILES_PATH/.roverec2rc"
+[ $USER = 'apacholski' ] && source "$DOTFILES_PATH/.rocketrc"
 [ $USER = 'adamp' ] && source "$DOTFILES_PATH/.homerc"
 [ $USER = 'vscode' ] && source "$DOTFILES_PATH/.codespacesrc"
 [ $USER = 'codespace' ] && source "$DOTFILES_PATH/.codespacesrc"

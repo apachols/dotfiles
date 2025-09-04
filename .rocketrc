@@ -1,0 +1,31 @@
+
+export PATH="/Users/adamp/.pyenv/shims:${PATH}"
+
+  export NVM_DIR="$HOME/.nvm"
+  [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"
+  [ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"
+
+# Need this for homebrew now apparently
+export PATH=/opt/homebrew/bin:$PATH
+
+export AWS_CA_BUNDLE="/Users/apacholski/ql-ca-bundle-openssl.crt"
+export NODE_EXTRA_CA_CERTS="/Users/apacholski/ql-ca-bundle.crt"
+export COMPOSER_CAFILE="/Users/apacholski/ql-ca-bundle-openssl.crt"
+
+#
+# ALIAS
+#
+
+alias web='cd ~/git/rkt-apollo'
+alias awslogin='aws sso login --profile default'
+alias dc='docker-compose'
+
+#
+# f(x)
+#
+
+function openinc() {
+	PWD_HASH="$(pwd | tr -d '\n' | xxd -c 256 -p)"
+  FOLDER_URI="vscode-remote://dev-container+$PWD_HASH/rkt-apollo"
+  code --folder-uri=$FOLDER_URI
+}
