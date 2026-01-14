@@ -34,3 +34,12 @@ function mp3()
 {
   ffmpeg -i $1 -b:a 256000 newfilename.mp3
 }
+
+function goto() {
+  if [ -d "$1" ]; then
+    cd "$1"
+  else
+    cd "$(dirname $1)"
+  fi
+}
+
