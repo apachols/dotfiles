@@ -22,3 +22,5 @@ for file in $DOTFILES_PATH/.{path,bash_prompt,bashrc,exports,aliases,secrets}; d
   [ -r "$file" ] && source "$file"
 done
 unset file
+
+. "$HOME/.local/bin/env"

@@ -8,5 +8,8 @@
 [alias]
 	pu = push -u origin HEAD
 	br = branch --sort=-committerdate
+	co = checkout
+	df = diff
+	st = status
 [pull]
 	rebase = true
