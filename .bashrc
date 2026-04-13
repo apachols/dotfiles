@@ -54,3 +54,14 @@ function personalize {
     cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
     echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
 }
+
+function goto() {
+    if [ -d "$1" ]; then
+        cd "$1"
+    elif [ -f "$1" ]; then
+        cd "$(dirname "$1")"
+    else
+        echo "goto: '$1' is not a valid file or directory"
+        return 1
+    fi
+}

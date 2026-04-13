@@ -1,0 +1,17 @@
+
+
+export ANTHROPIC_AUTH_TOKEN="sk-MSC5sLKQeQlfAHEKZ5O-Dw"
+
+export PRE_COMMIT_ENABLED=1
+
+alias claude="~/.local/bin/claude"
+
+alias dc='docker-compose'
+alias web='cd ~/projects/web/'
+
+
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+
+export PATH="~/.local/bin:$PATH"
