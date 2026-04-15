@@ -29,10 +29,23 @@ alias pruned='docker system prune -f'
 
 alias lt='dc logs --tail 456'
 
-alias elasticsearch='docker run -p 9100:9100 mobz/elasticsearch-head:5'
+alias elastichead='docker run -p 9100:9100 mobz/elasticsearch-head:5'
 
 export PRE_COMMMIT_ENABLED=1
 
 function dcps {
     dc ps  --format='table {{ .Name }}\t{{ .Status }}'
+}
+
+function personalize {
+    local skills_dir="/workspaces/web/.claude/skills"
+    local dotfiles_skill="/workspaces/.codespaces/.persistedshare/dotfiles/.claude/skills/personal-overrides"
+    local link="$skills_dir/personal-overrides"
+
+    if [ ! -L "$link" ]; then
+        ln -s "$dotfiles_skill" "$link"
+        echo "Created symlink: $link -> $dotfiles_skill"
+    else
+        echo "Symlink already exists: $link"
+    fi
 }
