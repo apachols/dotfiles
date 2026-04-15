@@ -44,8 +44,11 @@ function personalize {
 
     if [ ! -L "$link" ]; then
         ln -s "$dotfiles_skill" "$link"
-        echo "Created symlink: $link -> $dotfiles_skill"
+        echo "Claude skill symlink: created $link -> $dotfiles_skill"
     else
-        echo "Symlink already exists: $link"
+        echo "Claude skill symlink: already exists: $link"
     fi
+
+    cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
+    echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
 }

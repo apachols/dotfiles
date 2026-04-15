@@ -23,10 +23,6 @@ alias gitchgs='git diff --color origin/master...HEAD'
 
 alias yargs='xargs -n 1'
 
-# OSX Specific
-# alias branch="echo $(git branch 2>/dev/null | grep '^*' | colrm 1 2) | pbcopy"
-# alias myip="ipconfig getifaddr en0 | xargs echo -n | pbcopy"
-
 #
 # FUNCTION TOWN
 #
@@ -48,11 +44,6 @@ function gitfiles()
     target="$1"
   fi
   git diff --name-only origin/$target...HEAD
-}
-
-function personalize {
-    cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
-    echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
 }
 
 function goto() {
