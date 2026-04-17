@@ -23,6 +23,10 @@ alias gitchgs='git diff --color origin/master...HEAD'
 
 alias yargs='xargs -n 1'
 
+alias sonnet="claude --model sonnet"
+
+export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+
 #
 # FUNCTION TOWN
 #
