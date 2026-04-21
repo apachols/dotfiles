@@ -17,8 +17,6 @@ source /workspaces/web/profile
 
 source /workspaces/web/profile-codespaces
 
-export ANTHROPIC_AUTH_TOKEN="sk-MSC5sLKQeQlfAHEKZ5O-Dw"
-
 alias claude="~/.local/bin/claude"
 
 alias sp='m shell_plus'
@@ -32,6 +30,10 @@ alias lt='dc logs --tail 456'
 alias elastichead='docker run -p 9100:9100 mobz/elasticsearch-head:5'
 
 export PRE_COMMMIT_ENABLED=1
+
+export ROVER_FUN_STATUSLINE=1
+
+export ANTHROPIC_AUTH_TOKEN="sk-MSC5sLKQeQlfAHEKZ5O-Dw"
 
 function dcps {
     dc ps  --format='table {{ .Name }}\t{{ .Status }}'
