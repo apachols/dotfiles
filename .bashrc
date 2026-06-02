@@ -63,3 +63,7 @@ function goto() {
         return 1
     fi
 }
+
+function rgp() {
+  rg "$1" ./src/aplaceforrover --type py -g "!*test*"
+}
