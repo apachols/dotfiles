@@ -28,6 +28,8 @@ alias sonnet="claude --model sonnet"
 alias blogs="dc logs --tail 987 web | grep -vi synth | grep -vi health | grep -vi tasks | grep -vi task"
 alias clogs="dc logs --tail 987 web | grep -i task"
 
+alias hello="echo 'hi'"
+
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 
 #
