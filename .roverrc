@@ -5,8 +5,6 @@ export LITELLM_TOKEN="sk-MSC5sLKQeQlfAHEKZ5O-Dw"
 
 export PRE_COMMIT_ENABLED=1
 
-alias claude="~/.local/bin/claude"
-
 alias dc='docker-compose'
 alias web='cd ~/projects/web/'
 
