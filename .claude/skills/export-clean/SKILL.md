@@ -13,5 +13,3 @@ When the user invokes this skill, do the following:
    ("Let me check…", "Searching for…", "Researching…", spinner text, etc.).
 4. Save this as a file to /tmp/claude-export-clean/
 5. Copy the contents of the file (the cleaned export output) to the clipboard
-
-Save the result to `conversation-export.md` in the working directory.
