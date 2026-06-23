@@ -31,6 +31,7 @@ alias clogs="dc logs --tail 987 web | grep -i task"
 alias hello="echo 'hi'"
 
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+export CLAUDE_CODE_DISABLE_ARTIFACT=0
 
 #
 # FUNCTION TOWN
