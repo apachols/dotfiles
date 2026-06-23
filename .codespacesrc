@@ -41,12 +41,12 @@ function dcps {
 
 function personalize {
     local skills_dir="/workspaces/web/.claude/skills"
-    local dotfiles_skill="/workspaces/.codespaces/.persistedshare/dotfiles/.claude/skills/personal-overrides"
-    local link="$skills_dir/personal-overrides"
+    local export_skill="/workspaces/.codespaces/.persistedshare/dotfiles/.claude/skills/export-clean"
+    local link="$skills_dir/export-clean"
 
     if [ ! -L "$link" ]; then
-        ln -s "$dotfiles_skill" "$link"
-        echo "Claude skill symlink: created $link -> $dotfiles_skill"
+        ln -s "$export_skill" "$link"
+        echo "Claude skill symlink: created $link -> $export_skill"
     else
         echo "Claude skill symlink: already exists: $link"
     fi
