@@ -41,11 +41,11 @@ function dcps {
 
 function personalize {
     local source_dir="/workspaces/.codespaces/.persistedshare/dotfiles/.claude/skills/"
-    local target_dir="~/.claude/skills"
+    local target_dir="$HOME/.claude/skills"
 
     # copy all skill dirs from source to target
     mkdir -p "$target_dir"
-    cp -r "$source_dir"* "$target_dir"/
+    cp -r "$source_dir". "$target_dir"
     echo "copied claude skills to $target_dir (go delete there to refresh)"
 
     # copy personal.py
