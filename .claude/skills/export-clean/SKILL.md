@@ -11,7 +11,7 @@ When the user invokes this skill, do the following:
 2. Remove the ascii art at the top
 3. Add the following info at the top in a code block
 
-claude-version: $CLAUDEVERSION
+claud-code-version: $CLAUDECODEVERSION
 model-version: $MODELVERSION
 working-directory: $WORKINGDIR
 
