@@ -1,4 +1,15 @@
-
+#
+# THESE LINES ARE FOR ORDERS
+#
+STRIPE_CLIENT = "payments.test.client.IntegrationEnvironmentStripeClient"
+STRIPE_PAYMENT_INTENT_CLIENT = (
+    "payments.test.client.IntegrationEnvironmentStripePaymentIntentClient"
+)
+STRIPE_PAYOUT_CLIENT = "payments.test.client.IntegrationEnvironmentStripePayoutClient"
+AVALARA_CLIENT = "sandbox"
+#
+#
+#
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
 # CELERY_TASK_ALWAYS_EAGER - default setting is True
