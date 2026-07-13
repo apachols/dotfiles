@@ -29,6 +29,8 @@ alias lt='dc logs --tail 456'
 
 alias elastichead='docker run -p 9100:9100 mobz/elasticsearch-head:5'
 
+export DC_PARAMS="--profile stripe"
+
 export PRE_COMMIT_ENABLED=true
 
 export ANTHROPIC_AUTH_TOKEN="sk-MSC5sLKQeQlfAHEKZ5O-Dw"
