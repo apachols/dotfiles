@@ -7,7 +7,7 @@
 
 [alias]
 	pu = push -u origin HEAD
-	br = branch --sort=-committerdate
+	br = for-each-ref --sort=-committerdate refs/heads/ --format='%(committerdate:short) | %(refname:short)'
 	co = checkout
 	df = diff
 	st = status
