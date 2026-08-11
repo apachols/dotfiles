@@ -13,3 +13,8 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 export PATH="~/.local/bin:$PATH"
+
+function skillsync()
+{
+  _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$HOME/.claude/skills"
+}

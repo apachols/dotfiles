@@ -76,3 +76,20 @@ function goto() {
 function rgp() {
   rg "$1" ./src/aplaceforrover --type py -g "!*test*"
 }
+
+function _sync_claude_skills()
+{
+  local source_dir="$1"
+  local target_dir="$2"
+  mkdir -p "$target_dir"
+  for skill in "$source_dir"/*/; do
+    skill="${skill%/}"
+    name=$(basename "$skill")
+    target="$target_dir/$name"
+    if [ -e "$target" ]; then
+      continue
+    fi
+    ln -s "$skill" "$target"
+    echo "linked skill: $name"
+  done
+}
