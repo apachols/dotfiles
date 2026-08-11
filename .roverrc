@@ -25,6 +25,7 @@ function remotesync()
   local local_dir="$HOME/obsidian/remote-sync"
 
   if mutagen sync list "$session_name" >/dev/null 2>&1; then
+    echo "remotesync: resuming session $session_name"
     mutagen sync resume "$session_name"
     return
   fi
@@ -36,5 +37,16 @@ function remotesync()
     return 1
   fi
 
-  mutagen sync create "$local_dir" "cs.$codespace:/home/codespace/obsidian/remote-sync" --name="$session_name"
+  # refresh ssh config aliases so cs.<name>[.<branch>] resolves for mutagen
+  gh codespace ssh --config > ~/.ssh/codespaces
+
+  local ssh_host
+  ssh_host=$(grep -m1 "^Host cs\.$codespace" ~/.ssh/codespaces | awk '{print $2}')
+  if [ -z "$ssh_host" ]; then
+    echo "remotesync: no ssh config entry for $codespace in ~/.ssh/codespaces"
+    return 1
+  fi
+
+  echo "remotesync: creating session $session_name ($local_dir <-> $ssh_host:/home/codespace/obsidian/remote-sync)"
+  mutagen sync create "$local_dir" "$ssh_host:/home/codespace/obsidian/remote-sync" --name="$session_name"
 }
