@@ -46,6 +46,9 @@ function personalize {
     # symlink any new skill dirs from source to target
     _sync_claude_skills "$source_dir" "$target_dir"
 
+    # ensure remote-sync target dir exists for mutagen (see remotesync in .roverrc)
+    mkdir -p "$HOME/obsidian/remote-sync"
+
     # copy personal.py
     cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
     echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"

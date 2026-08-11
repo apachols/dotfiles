@@ -11,6 +11,26 @@ description: Exports the current conversation to markdown like /export, cleans i
 > non-shareable information**. Replace redacted values with a placeholder like
 > `[REDACTED]`. Never publish an Artifact until this review is complete.
 
+## Output directory (OUTPUT_DIR)
+
+export-share remembers where to save clean exports in a flat config file at
+`~/.claude/export-share-output-dir` (single line, just the absolute path — same
+pattern as the caveman plugin's `~/.claude/.caveman-active` flag file).
+
+On every invocation, before doing anything else:
+
+1. Read `~/.claude/export-share-output-dir` if it exists.
+2. **If it exists and is non-empty:** treat its contents as `OUTPUT_DIR` and
+   print one line: `export-share output dir: <OUTPUT_DIR>`. Do not ask again.
+3. **If it does not exist (or is empty):** ask the user where to save clean
+   exports, suggesting `~/obsidian/remote-sync/` as the default (this is the
+   user's mutagen-synced directory shared with codespaces — see `remotesync`).
+   Once they answer, write their chosen path as `OUTPUT_DIR` — a single line,
+   no trailing newline requirements — to `~/.claude/export-share-output-dir`,
+   creating the directory itself with `mkdir -p` if it doesn't exist yet.
+
+Use `OUTPUT_DIR` (not `/tmp`) as the save location in step 6 below.
+
 When the user invokes this skill, do the following:
 
 1. Reproduce the full conversation as markdown (same content /export produces).
@@ -26,7 +46,7 @@ working-directory: $WORKINGDIR
 5. **Redact sensitive data** — scan for environment variable values, secret
    keys, API tokens, passwords, credentials, or any other non-shareable
    information and replace each value with `[REDACTED]`.
-6. Save this as a file to /tmp/claude-export-clean/. Filename should start with a timestamp.
+6. Save this as a file to `OUTPUT_DIR` (see above). Filename should start with a timestamp.
 
 Print the full path of the new clean export file so the user can open the file.
 

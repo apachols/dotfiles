@@ -18,3 +18,23 @@ function skillsync()
 {
   _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$HOME/.claude/skills"
 }
+
+function remotesync()
+{
+  local session_name="obsidian-remote-sync"
+  local local_dir="$HOME/obsidian/remote-sync"
+
+  if mutagen sync list "$session_name" >/dev/null 2>&1; then
+    mutagen sync resume "$session_name"
+    return
+  fi
+
+  local codespace
+  codespace=$(gh codespace list --json name,state --jq '[.[] | select(.state=="Available")][0].name')
+  if [ -z "$codespace" ]; then
+    echo "remotesync: no available codespace found"
+    return 1
+  fi
+
+  mutagen sync create "$local_dir" "cs.$codespace:/home/codespace/obsidian/remote-sync" --name="$session_name"
+}
