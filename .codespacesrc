@@ -53,3 +53,22 @@ function personalize {
     cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
     echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
 }
+
+function dotfiles {
+    cd "$DOTFILES_PATH" || return 1
+
+    if [ -n "$(git status --porcelain)" ]; then
+        cat <<'EOF'
+  _        ____    ____      _    _       ____ _   _    _    _   _  ____ _____ ____
+ | |      / __ \  / ___|    / \  | |     / ___| | | |  / \  | \ | |/ ___| ____/ ___|
+ | |     | |  | | | |      / _ \ | |    | |   | |_| | / _ \ |  \| | |  _|  _| \___ \
+ | |___  | |__| | | |___  / ___ \| |___ | |___|  _  |/ ___ \| |\  | |_| | |___ ___) |
+ |_____|  \____/   \____|/_/   \_\_____| \____|_| |_/_/   \_\_| \_|\____|_____|____/
+
+      local changes detected, sync not possible
+EOF
+        return 1
+    fi
+
+    git pull
+}
