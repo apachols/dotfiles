@@ -37,9 +37,11 @@ When the user invokes this skill, do the following:
 2. Remove the ascii art at the top
 3. Add the following info at the top in a code block
 
-claud-code-version: $CLAUDECODEVERSION
+---
+claude-code-version: $CLAUDECODEVERSION
 model-version: $MODELVERSION
 working-directory: $WORKINGDIR
+---
 
 4. Remove transient status lines — anything that's just narration of tool use
    ("Let me check…", "Searching for…", "Researching…", spinner text, etc.).
