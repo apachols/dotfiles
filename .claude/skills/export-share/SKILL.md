@@ -1,6 +1,6 @@
 ---
 name: export-share
-description: Exports the current conversation to markdown like /export, cleans it up - strips out "checking this / researching that" status chatter and applies formatting tweaks - then offers to share it as a claude.ai Artifact or as a Slack Canvas and returns the link.
+description: Exports the current conversation to markdown like /export, cleans it up - strips out "checking this / researching that" status chatter and applies formatting tweaks - then offers to share it as a claude.ai Artifact, a Slack Canvas, or a private GitHub Gist and returns the link.
 ---
 
 # Export Share
@@ -60,11 +60,13 @@ How would you like to share this?
 
 1. Create a claude.ai Artifact (private link)
 2. Upload to Slack as a Canvas
-3. Don't share — just keep the local file
+3. Create a private GitHub Gist (`gh` CLI)
+4. Don't share — just keep the local file
 ```
 
 Skip the prompt if the user already picked a destination in their invocation
-(e.g. "/export-share as artifact", "/export-share to slack").
+(e.g. "/export-share as artifact", "/export-share to slack",
+"/export-share as gist").
 
 **Do not check whether Slack is available before the user chooses.** Only probe
 for Slack tooling after they pick the Slack option — checking up front costs
@@ -121,3 +123,44 @@ Notes:
   truncate the transcript.
 - The same redaction review applies: never upload an export to Slack before the
   sensitive-data pass above is complete.
+
+### Option 3 — Private GitHub Gist (`gh` CLI)
+
+1. Check the `gh` CLI is present and authenticated:
+
+   ```bash
+   gh auth status
+   ```
+
+   If `gh` is not installed or not authenticated, tell the user plainly:
+
+   > The `gh` CLI isn't available/authenticated here, so I can't create a Gist.
+   > The local markdown file is still at `<path>`. Run `gh auth login` and
+   > re-run, or share as a claude.ai Artifact instead.
+
+   Then offer the Artifact option again. Do not fall back to `curl` against the
+   GitHub API.
+2. Create the gist from the saved file. `gh gist create` makes a **secret**
+   gist by default — never pass `--public`:
+
+   ```bash
+   gh gist create "<OUTPUT_DIR>/<timestamped-file>.md" --desc "<one-line conversation summary>"
+   ```
+
+   The command prints the gist URL on success.
+3. Print the returned Gist URL so the user can open and share it.
+
+Notes:
+
+- **A secret gist is unlisted, not access-controlled.** It won't show on the
+  user's profile or in GitHub search, but anyone who has the URL can read it
+  without signing in. Say this when returning the link — it is weaker than the
+  Artifact private link.
+- Gists are per-account and may land on a work GitHub account. If `gh auth
+  status` shows multiple accounts or a work host, name the account the gist
+  will be created under and confirm before creating it.
+- The same redaction review applies: never create a gist before the
+  sensitive-data pass above is complete. A pushed gist is effectively public
+  once the URL leaks — deleting it later does not undo caching or indexing.
+- To update a previously created gist, use `gh gist edit <gist-id-or-url>
+  --filename <name>.md <path>` rather than creating a new one.
