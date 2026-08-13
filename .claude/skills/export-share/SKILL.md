@@ -46,7 +46,25 @@ working-directory: $WORKINGDIR
 5. **Redact sensitive data** — scan for environment variable values, secret
    keys, API tokens, passwords, credentials, or any other non-shareable
    information and replace each value with `[REDACTED]`.
-6. Save this as a file to `OUTPUT_DIR` (see above). Filename should start with a timestamp.
+6. Save this as a file to `OUTPUT_DIR` (see above), using the filename format
+   below.
+
+## Filename format
+
+```text
+YYYY-MM-DD---short-kebab-case-description.md
+```
+
+- ISO date first (`YYYY-MM-DD`), then **three** hyphens as the separator, then a
+  short kebab-case description of what the conversation was about.
+- Example: `2026-08-13---vetlive-removal-part-3-stay-annotations.md`
+- Use the current date. Do not add a time component.
+- The description is lowercase ASCII, words joined by single hyphens, no spaces,
+  underscores, or punctuation. Digits are fine (`part-3`). Aim for 3–6 words.
+- Derive the description from the conversation's actual topic, not from generic
+  words like `export` or `conversation`.
+- If a file with that name already exists in `OUTPUT_DIR`, append `-2`, `-3`, …
+  to the description rather than overwriting.
 
 Print the full path of the new clean export file so the user can open the file.
 
@@ -76,7 +94,7 @@ tokens and blocks on work that may never be needed.
 
 1. Call the **Artifact** tool with `file_path` set to the saved `.md` file.
 2. Markdown artifacts keep their filename identity, so no `title` param is
-   needed; the timestamped filename names it.
+   needed; the dated filename names it.
 3. Pass a one-sentence `description` summarizing the conversation topic.
 4. Pass a `favicon` emoji that fits the conversation subject (e.g. 📝 for a
    general export). Keep it stable if you re-publish the same export.
@@ -144,7 +162,7 @@ Notes:
    gist by default — never pass `--public`:
 
    ```bash
-   gh gist create "<OUTPUT_DIR>/<timestamped-file>.md" --desc "<one-line conversation summary>"
+   gh gist create "<OUTPUT_DIR>/YYYY-MM-DD---short-description.md" --desc "<one-line conversation summary>"
    ```
 
    The command prints the gist URL on success.
