@@ -40,18 +40,56 @@ function dcps {
 }
 
 function personalize {
-    local source_dir="/workspaces/.codespaces/.persistedshare/dotfiles/.claude/skills"
-    local target_dir="$HOME/.claude/skills"
-
-    # symlink any new skill dirs from source to target
-    _sync_claude_skills "$source_dir" "$target_dir"
+    # symlink any new skill dirs from dotfiles to ~/.claude/skills
+    _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$HOME/.claude/skills"
 
     # ensure remote-sync target dir exists for mutagen (see remotesync in .roverrc)
     mkdir -p "$HOME/obsidian/remote-sync"
 
+    # symlink global CLAUDE.md from dotfiles
+    ln -sfn "$DOTFILES_PATH/.claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+    echo "linked $HOME/.claude/CLAUDE.md -> $DOTFILES_PATH/.claude/CLAUDE.md"
+
+    # merge required permissions into ~/.claude/settings.json
+    _merge_claude_settings
+
     # copy personal.py
     cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
     echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
+}
+
+function _merge_claude_settings {
+    local settings="$HOME/.claude/settings.json"
+
+    mkdir -p "$HOME/.claude"
+    [ -f "$settings" ] || echo '{}' > "$settings"
+
+    python3 - "$settings" <<'PYEOF'
+import json, sys
+
+path = sys.argv[1]
+
+try:
+    with open(path) as f:
+        data = json.load(f)
+except (ValueError, OSError):
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+allow = data.setdefault("permissions", {}).setdefault("allow", [])
+entry = "Bash(bash -lc:*)"
+
+if entry not in allow:
+    allow.append(entry)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print("added %s to %s" % (entry, path))
+else:
+    print("%s already allowed in %s" % (entry, path))
+PYEOF
 }
 
 function dotfiles {
