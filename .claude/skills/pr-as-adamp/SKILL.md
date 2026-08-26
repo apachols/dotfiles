@@ -16,7 +16,7 @@ Read `pr-template.md` next to this SKILL.md. It is the canonical copy of adamp's
 
 Invoke the `create-pr` skill (`Skill(skill: "create-pr")`) and follow all of its steps: mode detection, base branch, Jira ticket extraction, diff gathering, repo template discovery, commit/push, `gh pr create --draft` / `gh pr edit`.
 
-Section contract stays create-pr's: the **repo's own** PR template (e.g. `.github/PULL_REQUEST_TEMPLATE/*.md`) defines which sections exist. `pr-template.md` never adds, renames, or reorders sections — it only governs wording and content of sections the repo template already has.
+Section contract stays create-pr's: the **repo's own** PR template (e.g. `.github/PULL_REQUEST_TEMPLATE/*.md`) defines which sections exist. `pr-template.md` never renames or reorders sections, and adds exactly one — `# Additional Context` (see below). Otherwise it only governs wording and content of sections the repo template already has.
 
 ## Step 3: Apply adamp's style on top
 
@@ -24,6 +24,8 @@ Where `pr-template.md` and create-pr's guidance disagree on *wording or content 
 
 - **Always delete the template's placeholder/italic prompt bullets.** No `_What is changing in this PR?_` left behind.
 - **Ultra-concise bullet points everywhere.** Fewest words that still convey the fact. No prose paragraphs — including the "reason for this pull request" section (create-pr's "2-4 sentences" gives way to bullets, ≤150 words, audience = "familiar with Rover but not this area", no description of what was *not* changed).
+- **"What is the reason for this pull request?" holds ONLY reasons — 1–3 bullets.** A reason answers "what is changing and why are we making this change". Nothing else goes here.
+- **`# Additional Context` is a new section, inserted immediately below the reason section**, even though the repo template has no such heading. Everything that is good to know but is *not* a reason lives here: design rationale, why a given object/layer was chosen, migration/backfill implications, row counts, alternatives considered, follow-up work. Same ultra-concise bullets. Omit the whole section when there is no such context.
 - **Deployment sections**: 1–3 bullets, each a measurable outcome (prod behavior, Splunk, Datadog).
 - **Breaking-changes section**: delete the `> [!NOTE]` info box. Decide the checkbox from the diff, and warn the user in chat if the diff looks like it *does* contain breaking changes.
 - **Brands**: remove the "this is a temporary question" annotation; keep Rover / Cat in a Flat / DogBuddy / MadPaws checked unless the diff is brand-scoped.
@@ -40,7 +42,8 @@ Before calling `gh pr create` / `gh pr edit`, verify the body:
 1. No style-note fenced block, no `> [!NOTE]` / `> [!TIP]` / `> [!IMPORTANT]` box, no "temporary question" annotation.
 2. No leftover italic placeholder bullets.
 3. Every section is bullets, not prose; each bullet is as short as it can be.
-4. Every section the repo template has is present; no section invented.
-5. Test cases are runnable start-to-finish by someone else, with fixture + flag setup named.
+4. Every section the repo template has is present; no section invented except `# Additional Context`.
+5. The reason section is 1–3 bullets and every one of them is an actual reason; any non-reason context moved down to `# Additional Context`.
+6. Test cases are runnable start-to-finish by someone else, with fixture + flag setup named.
 
 Then create/update the draft PR, and report the URL plus any breaking-change warning.

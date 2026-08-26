@@ -15,10 +15,37 @@ Style Notes
 - Limit: 150 words
 - audience should be "familiar with Rover but not familiar with this area"
 - Do not include a description of what we didn't change
+- ONLY the reasons for the pull request, in 1-3 bullet points
+- A "reason" answers "what is changing and why are we making this change"
+- Anything that is good-to-know context but is NOT a reason for the change belongs in "Additional Context" below (design rationale, why this object / layer was chosen, migration or backfill implications, row counts, alternatives considered, follow-up work)
 ```
 
 - _What is changing in this PR?_
 - _Why are we making these updates?_
+
+# Additional Context
+```
+Style Notes
+- New section, always immediately below "What is the reason for this pull request?"
+- This section is NOT in the repo PR template — add it anyway, it is the one section this style guide introduces
+- Ultra concise bullet points, same as every other section
+- Holds supporting context that is useful but is not a reason for the change
+- Omit the section entirely if there is no context worth stating
+
+Example of the split between the two sections:
+
+    # What is the reason for this pull request?
+
+    - Adds `RecurringBillingRelationship.sales_tax_recoupment_enabled`, a nullable boolean. Schema + data-compliance policy only — nothing reads or writes it yet.
+    - Rover reports and remits US sales tax on recurring bookings but never charges the owner, so Rover absorbs it. Recoupment ships to **new relationships only**.
+
+    # Additional Context
+
+    - The relationship is the only object with the right lifetime — a recurring relationship creates a new conversation every cycle, so the existing per-conversation `SalesTaxEligibility` row would switch tax on for relationships already in flight.
+    - `NULL` reads as "not enrolled", so **no backfill**: all 307,761 existing relationships keep today's behavior with zero rows written.
+```
+
+- _Supporting context that is not itself a reason for the change_
 
 # Deployment
 
