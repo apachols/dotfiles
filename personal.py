@@ -31,7 +31,7 @@ CELERY_TASK_ALWAYS_EAGER = True
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #
 #
-MEGATRON_TASKS_ENABLED = True
+MEGATRON_TASKS_ENABLED = False
 #
 #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
