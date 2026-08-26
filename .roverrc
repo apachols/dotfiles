@@ -7,6 +7,7 @@ export PRE_COMMIT_ENABLED=1
 
 alias dc='docker-compose'
 alias web='cd ~/projects/web/'
+alias dotfiles='cd "$DOTFILES_PATH"'
 
 alias cs='gh cs ssh -- -A'
 
