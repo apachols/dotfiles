@@ -1,6 +1,4 @@
-
 ---
-
 
 ```
 General Style Notes
@@ -10,6 +8,7 @@ General Style Notes
 ```
 
 # What is the reason for this pull request?
+
 ```
 Style Notes
 - Limit: 150 words
@@ -24,6 +23,7 @@ Style Notes
 - _Why are we making these updates?_
 
 # Additional Context
+
 ```
 Style Notes
 - New section, always immediately below "What is the reason for this pull request?"
@@ -50,6 +50,7 @@ Example of the split between the two sections:
 # Deployment
 
 ## How can I tell if this change has been deployed?
+
 ```
 Style Notes
 - Between 1 and 3 bullet points
@@ -60,8 +61,8 @@ Style Notes
 - _Are there dashboards that I can refer to?_
 - _Are there logging messages we expect to see?_
 
-
 ## Did anything break? How can I tell if this code is **NOT** working in production?
+
 ```
 Style Notes
 - Between 1 and 3 bullet points
@@ -73,6 +74,7 @@ Style Notes
 - _Are there any new side effects of this change?_
 
 ## Does this code include breaking changes to our mobile apps?
+
 ```
 Style Notes
 - Delete the "Note" info box below
@@ -81,6 +83,7 @@ Style Notes
 
 > [!NOTE]
 > A **breaking change** is any API modification that could cause issues for our iOS, Android, or React Native apps. Examples include:
+>
 > - Removing a key from an API response that native apps rely on
 > - Changing the type of an existing key (e.g., string → integer, object → array)
 > - Renaming a key in an API response without maintaining backwards compatibility
@@ -113,6 +116,7 @@ _This is a temporary question to drive multi-brand awareness for new features. F
 ## Code Generation
 
 _Roughly what percentage of the lines of code were initially authored by an AI assistant?_
+
 ```
 Style Notes
 - Always select "all or nearly all"
@@ -132,6 +136,7 @@ Style Notes
 > [!TIP] > _Optionally add a note on the AI tool and what you used it for, e.g. "used Claude Code to generate Django Admin page and add tests"_
 
 ## Instructions for reviewers (including agents, e.g. Claude, Copilot)
+
 ```
 Style Notes
 - Eliminate this section entirely if there are no frontend changes
@@ -177,7 +182,7 @@ Style Notes
 
 Test Suite Description
 
-The preferred approach is to construct a concise test suite description such that a reviewer can execute specific steps in their own environment and see desired outcomes.  
+The preferred approach is to construct a concise test suite description such that a reviewer can execute specific steps in their own environment and see desired outcomes.
 
 Format the acceptance tests section like this:
 
@@ -185,10 +190,10 @@ Format the acceptance tests section like this:
 
 [ ] Captcha only works with JS Enabled
 - Go to page account/continue, and reload the page
-   [ ] Expect to see a captcha
+   - Expect to see a captcha
 - Disable Javascript and reload the page again
-   [ ] Expect not to see a captcha
-  
+   - Expect not to see a captcha
+
 In other words, each test case gets its own checkbox, and the bullet points walk the PR reviewer through a specific manual test in order, skipping no steps, but being as concise as possible in every bullet point description.
 
 Other Testing Do's and Do-Not's:
@@ -201,16 +206,16 @@ The test suite should completely exercise the changes to the application code, o
 - It wasn't possible to manual test the /landing/signup page, since that is 3rd party hosted and not available in local dev
 - We should test the Elasticsearch changes by deploying to staging, and doing a couple test searches
 - No test steps added for Search Scores, as it isn't possible to test in local dev currently
-  
+
 Rules for Shell Plus Blocks:
-- Please start code blocks for shell plus with "python" after the opening code block ticks, which will cause them to syntax highlight as python in the github PR page.  
+- Please start code blocks for shell plus with "python" after the opening code block ticks, which will cause them to syntax highlight as python in the github PR page.
 - It's okay that shell plus scripts are only "mostly python", we just want more than zero syntax highlighting.
 - Always assume the user will click "copy" and then paste the whole shell plus block into a shell plus session
 - Never set up the shell plus blocks as "one-liners" using m shell_plus -c "'from stays.event_notifications ...'"
 - You don't ever need to import models classes, all the models in the django app are automatically imported in our shell_plus sessions
 - If it's possible, always use the .last() ORM filter to grab the most recent stay / conversation / etc
 - Since we use fixture data for most test cases, we should usually be able to go grab the most recent record of that type
-  
+
 ```
 
 > [!IMPORTANT]
