@@ -4,7 +4,7 @@
 General Style Notes
 - Always delete the existing bullet points
 - Every section should be written in ultra concise bullet points
-- Bullet points should be 120 characters or fewer if at all possible
+- Bullet points MUST BE shorter than 150 characters
 - Use as few words as possible
 ```
 
