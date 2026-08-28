@@ -155,11 +155,21 @@ Style Notes
 - Steps should be in bullet points
 - Please indent and nest bullet points if a particular step has several substeps
 
-<1> Answer the "are there feature flags" question first
+<1> Answer the "are there feature flags" question first.  Show only the feature flag names:
+
+`recurring_billing_sales_tax_enabled`
+`killswitch_my_buggy_feature`
 
 <2> For "are there users or fixtures to create", most PR manual test suites start by using fixture templates to create new DB records.
 
 This is frequently "Standard Scenario", but use your best judgement as to which fixture best fits the codepaths we need to exercise.
+
+Each test case should describe how to create the necessary users via the fixture templates.
+
+In this section, simply list the fixture template names that are used in the test cases, with no additional explanation.
+
+`recurring-billing-scenarios`
+`standard-scenario`
 
 If you have a specific scenario in mind, you can link it in the PR template, like this:
 
@@ -188,12 +198,21 @@ The preferred approach is to construct a concise test suite description such tha
 Format the acceptance tests section like this:
 
 ### Test Cases
-
-[ ] Captcha only works with JS Enabled
-- Go to page account/continue, and reload the page
-   - Expect to see a captcha
-- Disable Javascript and reload the page again
-   - Expect not to see a captcha
+___
+Test Case 1
+[ ] Rollout flag off, nothing enrolls
+- Turn `rollout_recurring_sales_tax_recoupment` **off**
+- As a US, taxable-state, non-BH owner on Unified Checkout, book a new recurring relationship by hand
+  - `rbr.sales_tax_recoupment_enabled is False` — exactly `False`, not `None`
+  - No `sales-tax` OLI on the order, no tax line on the checkout ledger
+___
+Test Case 2
+[ ] Rollout flag on, everyone enrolls
+- Turn `rollout_recurring_sales_tax_recoupment` **on**
+- As a US, taxable-state, non-BH owner on Unified Checkout, book a new recurring relationship by hand
+  - `rbr.sales_tax_recoupment_enabled is True`
+  - `sales-tax` OLI on the order, tax line on the checkout ledger
+___
 
 In other words, each test case gets its own checkbox, and the bullet points walk the PR reviewer through a specific manual test in order, skipping no steps, but being as concise as possible in every bullet point description.
 
