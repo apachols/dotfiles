@@ -23,12 +23,13 @@ Style Notes
 - _What is changing in this PR?_
 - _Why are we making these updates?_
 
-# Additional Context
+## Additional Context
 
 ```
 Style Notes
-- New section, always immediately below "What is the reason for this pull request?"
-- This section is NOT in the repo PR template — add it anyway, it is the one section this style guide introduces
+- Limit: 300 words
+- Always immediately below "What is the reason for this pull request?"
+- This section is NOT in the repo PR template; add it anyway as a subsection for "why are we changing this"
 - Ultra concise bullet points, same as every other section
 - Holds supporting context that is useful but is not a reason for the change
 - Omit the section entirely if there is no context worth stating
@@ -155,8 +156,10 @@ Style Notes
 - Steps should be in bullet points
 - Please indent and nest bullet points if a particular step has several substeps
 
-<1> Answer the "are there feature flags" question first.  Show only the feature flag names:
+Answer the "are there feature flags" question first.  Show only the feature flag names:
 
+Example Output
+🚩 Feature Flags
 `recurring_billing_sales_tax_enabled`
 `killswitch_my_buggy_feature`
 
@@ -168,16 +171,16 @@ Each test case should describe how to create the necessary users via the fixture
 
 In this section, simply list the fixture template names that are used in the test cases, with no additional explanation.
 
+Example Output:
+
+📄 Fixture Templates
 `recurring-billing-scenarios`
+http://rover.local:8001/dev/fixtures/templates/recurring-billing-scenarios
 `standard-scenario`
-
-If you have a specific scenario in mind, you can link it in the PR template, like this:
-
 http://rover.local:8001/dev/fixtures/templates/1-standard-scenario
 
-You can grep for "(FixtureSetTemplate)" and it will show all the different fixture set classes, and in the next few lines the slug (e.g. "1-standard-scenario") will be defined.
 
-Make sure to be specific about what options the tester needs to specify in order to run the fixture template scenario.
+Note: You can grep for "(FixtureSetTemplate)" and it will show all the different fixture set classes, and in the next few lines the slug (e.g. "1-standard-scenario") will be defined.
 ```
 
 - 🚩 _Are there any feature flags to enable?_
