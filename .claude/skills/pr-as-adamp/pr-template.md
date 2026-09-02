@@ -198,26 +198,29 @@ Test Suite Description
 
 The preferred approach is to construct a concise test suite description such that a reviewer can execute specific steps in their own environment and see desired outcomes.
 
-Format the acceptance tests section like this:
+Format the acceptance tests section like this — one `___` separator above every test case and one closing the last one:
 
 ### Test Cases
 ___
 Test Case 1
 [ ] Rollout flag off, nothing enrolls
-- Turn `rollout_recurring_sales_tax_recoupment` **off**
-- As a US, taxable-state, non-BH owner on Unified Checkout, book a new recurring relationship by hand
-  - `rbr.sales_tax_recoupment_enabled is False` — exactly `False`, not `None`
-  - No `sales-tax` OLI on the order, no tax line on the checkout ledger
+
+<single test case body>
 ___
 Test Case 2
 [ ] Rollout flag on, everyone enrolls
-- Turn `rollout_recurring_sales_tax_recoupment` **on**
-- As a US, taxable-state, non-BH owner on Unified Checkout, book a new recurring relationship by hand
-  - `rbr.sales_tax_recoupment_enabled is True`
-  - `sales-tax` OLI on the order, tax line on the checkout ledger
+
+<single test case body>
+___
+Test Case 3
+[ ] Rollout flag on, recurring booking cycling
+
+<single test case body>
 ___
 
-In other words, each test case gets its own checkbox, and the bullet points walk the PR reviewer through a specific manual test in order, skipping no steps, but being as concise as possible in every bullet point description.
+The body of a single test case is NOT defined here. Read `testcase-format.md` next to this
+file and follow it for every `<single test case body>` above: the Test Conditions /
+Test Execution / Expected Result sections, and the collapsed Manual Test Instructions block.
 
 Other Testing Do's and Do-Not's:
 - Don't list "run these unit tests" as a manual test step, CI will do that
