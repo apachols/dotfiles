@@ -25,12 +25,12 @@ restate in prose what the diagram already shows.
 
 ### Choosing the form
 
-| Subject                                          | Form                                    |
-| ------------------------------------------------ | --------------------------------------- |
-| Control flow, call paths, request paths, state   | mermaid `flowchart` / `stateDiagram-v2` |
-| Ordered interaction between actors over time      | mermaid `sequenceDiagram`                |
-| Database schema, model relationships              | mermaid `erDiagram`                      |
-| Class / type hierarchy                            | mermaid `classDiagram`                   |
+| Subject                                            | Form                                    |
+| -------------------------------------------------- | --------------------------------------- |
+| Control flow, call paths, request paths, state     | mermaid `flowchart` / `stateDiagram-v2` |
+| Ordered interaction between actors over time       | mermaid `sequenceDiagram`               |
+| Database schema, model relationships               | mermaid `erDiagram`                     |
+| Class / type hierarchy                             | mermaid `classDiagram`                  |
 | Anything layout-custom (nesting, annotated shapes) | hand-authored SVG                       |
 
 Mermaid handles its own layout — reach for it first. Only hand-author SVG when
@@ -44,47 +44,57 @@ measurement, and deviating clips text.
 
 ```html
 <style>
-#d { overflow-x: auto; }
-#d svg { max-width: 100%; height: auto; }
+  #d {
+    overflow-x: auto;
+  }
+  #d svg {
+    max-width: 100%;
+    height: auto;
+  }
 </style>
 <div id="d" style="min-height:200px"></div>
 <script type="module">
-import mermaid from 'https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs';
-const themeMode = document.documentElement.dataset.mode;
-const dark = themeMode ? themeMode === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-await document.fonts.ready;
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'base',
-  fontFamily: '"anthropic-sans", sans-serif',
-  themeVariables: {
-    darkMode: dark,
-    fontSize: '13px',
+  import mermaid from "https://esm.sh/mermaid@11/dist/mermaid.esm.min.mjs";
+  const themeMode = document.documentElement.dataset.mode;
+  const dark = themeMode
+    ? themeMode === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  await document.fonts.ready;
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
     fontFamily: '"anthropic-sans", sans-serif',
-    lineColor: dark ? '#9c9a92' : '#73726c',
-    textColor: dark ? '#c2c0b6' : '#3d3d3a',
-    primaryColor: dark ? '#2a2a28' : '#F5F4EF',
-    primaryBorderColor: dark ? '#4a4a46' : '#c9c7bd',
-    primaryTextColor: dark ? '#c2c0b6' : '#3d3d3a',
-    clusterBkg: dark ? '#232321' : '#FAF9F5',
-    clusterBorder: dark ? '#3d3d3a' : '#dcdad0',
-  },
-});
-const { svg } = await mermaid.render('d-svg', `flowchart TB
+    themeVariables: {
+      darkMode: dark,
+      fontSize: "13px",
+      fontFamily: '"anthropic-sans", sans-serif',
+      lineColor: dark ? "#9c9a92" : "#73726c",
+      textColor: dark ? "#c2c0b6" : "#3d3d3a",
+      primaryColor: dark ? "#2a2a28" : "#F5F4EF",
+      primaryBorderColor: dark ? "#4a4a46" : "#c9c7bd",
+      primaryTextColor: dark ? "#c2c0b6" : "#3d3d3a",
+      clusterBkg: dark ? "#232321" : "#FAF9F5",
+      clusterBorder: dark ? "#3d3d3a" : "#dcdad0",
+    },
+  });
+  const { svg } = await mermaid.render(
+    "d-svg",
+    `flowchart TB
   A["step one"] --> B["step two"]
-`);
-document.getElementById('d').innerHTML = svg;
+`,
+  );
+  document.getElementById("d").innerHTML = svg;
 </script>
 ```
 
 ### Visual Elements
 
-| Category | Elements                             | Usage                        |
-| -------- | ------------------------------------ | ---------------------------- |
-| Grouping | mermaid `subgraph`, one per path     | Component / path boundaries  |
-| Emphasis | `classDef` + `class`                 | Good path, gap, no-op        |
-| Status   | `✓` `✗` `⏳` `🔄` `⚠️` `🔴`          | Inline in node labels        |
-| Legend   | HTML `<div>` under the diagram       | Explain every symbol used    |
+| Category | Elements                         | Usage                       |
+| -------- | -------------------------------- | --------------------------- |
+| Grouping | mermaid `subgraph`, one per path | Component / path boundaries |
+| Emphasis | `classDef` + `class`             | Good path, gap, no-op       |
+| Status   | `✓` `✗` `⏳` `🔄` `⚠️` `🔴`      | Inline in node labels       |
+| Legend   | HTML `<div>` under the diagram   | Explain every symbol used   |
 
 Semantic `classDef` palette — green for the working/eligible path, red for the
 bug or ordering gap, grey for a no-op, dashed for an aside:
@@ -101,31 +111,44 @@ rendering, or the text goes unreadable:
 
 ```js
 if (dark) {
-  const m = {'#E7F3EC':'#16301F','#7FB894':'#3F7554','#14532D':'#BFE3CC',
-             '#FBEAE5':'#3A1C13','#E0A08C':'#8A4B33','#7C2D12':'#F2C9B8',
-             '#EDEDEA':'#2a2a28'};
-  document.querySelectorAll('#d [fill],#d [stroke]').forEach(el => {
-    for (const a of ['fill','stroke']) {
-      const v = (el.getAttribute(a) || '').toUpperCase();
-      const hit = Object.keys(m).find(k => k.toUpperCase() === v);
+  const m = {
+    "#E7F3EC": "#16301F",
+    "#7FB894": "#3F7554",
+    "#14532D": "#BFE3CC",
+    "#FBEAE5": "#3A1C13",
+    "#E0A08C": "#8A4B33",
+    "#7C2D12": "#F2C9B8",
+    "#EDEDEA": "#2a2a28",
+  };
+  document.querySelectorAll("#d [fill],#d [stroke]").forEach((el) => {
+    for (const a of ["fill", "stroke"]) {
+      const v = (el.getAttribute(a) || "").toUpperCase();
+      const hit = Object.keys(m).find((k) => k.toUpperCase() === v);
       if (hit) el.setAttribute(a, m[hit]);
     }
-    const st = el.getAttribute('style');
-    if (st) el.setAttribute('style', Object.entries(m).reduce((s,[k,v]) => s.replace(new RegExp(k,'gi'), v), st));
+    const st = el.getAttribute("style");
+    if (st)
+      el.setAttribute(
+        "style",
+        Object.entries(m).reduce(
+          (s, [k, v]) => s.replace(new RegExp(k, "gi"), v),
+          st,
+        ),
+      );
   });
 }
 ```
 
 ### Formatting Rules
 
-| Rule           | Value                              | Reason                          |
-| -------------- | ---------------------------------- | ------------------------------- |
-| Node labels    | `file.py:LINE` + what happens       | Same specificity as section 2   |
-| Line breaks    | `<br/>` inside `"…"` labels         | Keeps nodes narrow              |
-| Width          | `overflow-x: auto` on the container | Wide diagrams scroll, not clip  |
-| Colors         | Only via the `classDef` palette     | Survives light and dark mode    |
-| Legend         | Whenever symbols or colors appear   | Self-documenting                |
-| `title`        | Specific snake_case, not "diagram"  | Names the download, disambiguates |
+| Rule        | Value                               | Reason                            |
+| ----------- | ----------------------------------- | --------------------------------- |
+| Node labels | `file.py:LINE` + what happens       | Same specificity as section 2     |
+| Line breaks | `<br/>` inside `"…"` labels         | Keeps nodes narrow                |
+| Width       | `overflow-x: auto` on the container | Wide diagrams scroll, not clip    |
+| Colors      | Only via the `classDef` palette     | Survives light and dark mode      |
+| Legend      | Whenever symbols or colors appear   | Self-documenting                  |
+| `title`     | Specific snake_case, not "diagram"  | Names the download, disambiguates |
 
 - Control flow and call stacks: `flowchart TB`. Request paths: `flowchart LR`,
   numbered steps.
@@ -153,24 +176,39 @@ in one line that the rendered diagram wasn't available.
 
 ## <3> Relevant Files And Links section rules
 
-### Files
+### 3a. Files
 
 - use relative paths from the repository root. example: src/aplaceforrover/CLAUDE.md
-- include the relevant line number and or method or variable name
+- include the relevant line number if possible
+- file name and line number should go on their own line, so you can triple click to copy
+- on a separate line below each file name, indented with a bullet point, list what to look for
+- Could be a method name, or some other recognizable thing to look for and read
 
 Example Output:
 
-- src/aplaceforrover/recurring/flags.py:120 - recurring_schedule_web_management
-- src/aplaceforrover/docker-dev.yml:14 - config block for webhook container
+```
+Files
 
-### Links
+src/aplaceforrover/recurring/flags.py:120
+- recurring_schedule_web_management
+src/aplaceforrover/docker-dev.yml
+- config block for webhook container
+```
 
+### 3b. Links
+
+- You can skip the links section if there are no relevant links
 - Links should be printed in plain text, not marked up as a link, so they are easy to copy
+- Print each link on a separate line
 
 Example Output:
+
+```
+Links
 
 https://github.com/
 https://www.google.com/
+```
 
 ## Persistence
 
