@@ -198,25 +198,28 @@ Test Suite Description
 
 The preferred approach is to construct a concise test suite description such that a reviewer can execute specific steps in their own environment and see desired outcomes.
 
-Format the acceptance tests section like this — one `___` separator above every test case and one closing the last one:
+Format the acceptance tests section like this — each test case titled with a `## Test Case N` heading, no `___` separators:
 
 ### Test Cases
-___
-Test Case 1
+
+## Test Case 1
 [ ] Rollout flag off, nothing enrolls
 
 <single test case body>
-___
-Test Case 2
+
+## Test Case 2
 [ ] Rollout flag on, everyone enrolls
 
 <single test case body>
-___
-Test Case 3
+
+## Test Case 3
 [ ] Rollout flag on, recurring booking cycling
 
 <single test case body>
-___
+
+GitHub renders a `##` heading with its own horizontal rule underneath, so the headings do the
+visual separating that `___` used to do. Note the heading level: the case title is `##`, and the
+sections inside a case (`### Test Conditions`, etc.) stay at `###`.
 
 The body of a single test case is NOT defined here. Read `testcase-format.md` next to this
 file and follow it for every `<single test case body>` above: the Test Conditions /

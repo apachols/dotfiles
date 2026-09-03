@@ -13,7 +13,7 @@ Wrapper around the `create-pr` skill. `create-pr` decides *which* sections exist
 Read **both** files next to this SKILL.md:
 
 - `pr-template.md` — the canonical copy of adamp's annotated PR template. The fenced ```` ``` ```` blocks in it are **style notes for you**, not PR body content. Never copy a style-note block into a PR body.
-- `testcase-format.md` — the format of a **single** test case. Read it before writing the `### Test Cases` section; `pr-template.md` defines only the `___ Test Case N ___` block wrapper around cases.
+- `testcase-format.md` — the format of a **single** test case. Read it before writing the `### Test Cases` section; `pr-template.md` defines only the `## Test Case N` heading wrapper around cases.
 
 ## Step 2: Run create-pr
 
@@ -35,7 +35,7 @@ Where `pr-template.md` and create-pr's guidance disagree on *wording or content 
 - **AI code generation**: always check "All or nearly all (>75%)". Add **no** note on AI tool use, and delete the `> [!TIP]` "optionally add a note" callout. (This overrides create-pr's web.md, which asks for a note.)
 - **Reviewer instructions**: delete the whole section when there are no frontend changes. Leave the a11y checkbox unchecked when it stays.
 - **Before testing**: answer feature flags first, then users/fixtures. Nest sub-bullets for multi-step setup. Name the specific fixture template + the options the tester must pick, and link it, e.g. `http://rover.local:8001/dev/fixtures/templates/1-standard-scenario`. Find candidates by grepping `(FixtureSetTemplate)` — the slug is defined a few lines below each class. Default to `1-standard-scenario` only when nothing fits better.
-- **Acceptance tests**: delete the `> [!IMPORTANT]` accessibility box. Use a `### Test Cases` section, wrapping cases in the `___` / `Test Case N` block format from `pr-template.md`. Write each individual case exactly as `testcase-format.md` specifies — checkbox summary line, then `### Test Conditions` / `### Test Execution` / `### Expected Result`, then the manual steps inside a collapsed `<details><summary>Manual Test Instructions</summary>` block. If any a11y testing is needed, put it in its own `### Accessibility Test Cases` section *before* `### Test Cases`. Never list "run these unit tests" as a manual step. Anything not practical to manual-test goes in a `### Out of Scope` section at the end, one bullet per item with the reason.
+- **Acceptance tests**: delete the `> [!IMPORTANT]` accessibility box. Use a `### Test Cases` section, titling each case with a `## Test Case N` heading per `pr-template.md`. Write each individual case exactly as `testcase-format.md` specifies — checkbox summary line, then `### Test Conditions` / `### Test Execution` / `### Expected Result`, then the manual steps inside a collapsed `<details><summary>Manual Test Instructions</summary>` block. If any a11y testing is needed, put it in its own `### Accessibility Test Cases` section *before* `### Test Cases`. Never list "run these unit tests" as a manual step. Anything not practical to manual-test goes in a `### Out of Scope` section at the end, one bullet per item with the reason.
 - **shell_plus blocks**: fence as ```` ```python ````. Never one-liners via `m shell_plus -c "..."`. Assume the reviewer copies the whole block into a shell_plus session. Don't import model classes (shell_plus auto-imports them). Prefer `.last()` to grab the most recent fixture-created record.
 
 ## Step 4: Pre-send check

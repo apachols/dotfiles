@@ -1,13 +1,13 @@
 # Single Test Case Format
 
 Canonical shape of **one** test case in the `### Test Cases` section of a PR body.
-The block wrapper around test cases (the `___` separators, `Test Case N` labels) lives in
+The block wrapper around test cases (the `## Test Case N` headings) lives in
 `pr-template.md` — this file governs only what goes *inside* one case.
 
 ## Shape
 
 ```
-Test Case N
+## Test Case N
 [ ] <one-line summary of what this case proves>
 
 ### Test Conditions
@@ -58,7 +58,7 @@ Test Case N
 ## Example
 
 ```
-Test Case 1
+## Test Case 1
 [ ] Rollout flag off, nothing enrolls
 
 ### Test Conditions
