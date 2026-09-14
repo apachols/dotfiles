@@ -6,7 +6,7 @@
 """Manage the PR test-case results directory and render it as a static site.
 
 Results live under a single directory (the "results dir"), remembered in
-~/.claude/pr-test-case-report.json so it only has to be chosen once:
+~/.claude/execute-test-case.json so it only has to be chosen once:
 
     <results dir>/
       index.html                          <- generated
@@ -44,7 +44,7 @@ from pathlib import Path
 import markdown
 import yaml
 
-CONFIG_PATH = Path(os.environ.get("PR_TEST_CASE_REPORT_CONFIG", "~/.claude/pr-test-case-report.json")).expanduser()
+CONFIG_PATH = Path(os.environ.get("EXECUTE_TEST_CASE_CONFIG", "~/.claude/execute-test-case.json")).expanduser()
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
 RUN_NAME_RE = re.compile(r"\A(?P<stamp>[0-9]{8}T[0-9]{4}Z)(?:-pr-(?P<pr>[0-9]+))?")

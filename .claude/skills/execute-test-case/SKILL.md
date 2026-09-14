@@ -1,9 +1,9 @@
 ---
-name: pr-test-case-report
+name: execute-test-case
 description: Execute one or more acceptance-test cases from a Rover web PR body ("## Test Case N" sections) against local dev with Playwright, then write a browsable evidence report (result.md + screenshots + generated index.html pages) into the user's test-results directory. Use whenever the user asks to run, execute, verify, or QA a PR's test case(s), "test case 2 on PR 101753", "run the acceptance tests for my PR", "report coverage for this PR", or wants screenshots/proof that a PR's manual test plan passes. Remembers the results directory across sessions; asks for it only on first use.
 ---
 
-# PR test case report
+# Execute test case
 
 Run a PR's manual acceptance test case(s) end to end, capture evidence, and render the evidence
 as a static HTML tree the user opens with `file://`. No server is involved.
@@ -28,7 +28,7 @@ uv run --script <skill>/scripts/testresults.py get-dir
   ```
   and print `writing test results to <PATH>`.
 
-State lives in `~/.claude/pr-test-case-report.json` (override with `PR_TEST_CASE_REPORT_CONFIG`).
+State lives in `~/.claude/execute-test-case.json` (override with `EXECUTE_TEST_CASE_CONFIG`).
 Never store state inside the skill directory — it is shared via git.
 
 ## 2. Identify PR and test case(s)
