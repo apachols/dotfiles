@@ -51,10 +51,50 @@ function personalize {
     # merge required permissions into ~/.claude/settings.json
     _merge_claude_settings
 
+    # copy SessionStart hook that exports Codespace secrets to Bash tool commands
+    mkdir -p "$HOME/.claude/hooks"
+    cp -f "$DOTFILES_PATH/.claude/hooks/codespace-env.sh" "$HOME/.claude/hooks/codespace-env.sh"
+    chmod +x "$HOME/.claude/hooks/codespace-env.sh"
+    echo "copied codespace-env.sh to $HOME/.claude/hooks/codespace-env.sh"
+
     # copy personal.py
     cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
     echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
 }
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# WHAT WE ADD TO ~/.claude/settings.json
+#
+# Everything in this JSON blob gets deep-merged into the existing settings by
+# _merge_claude_settings below. Dicts merge key-by-key, lists append only the
+# entries that aren't already there, so running personalize twice is a no-op.
+#
+# Add new settings HERE, not in the merge function.
+#
+read -r -d '' CLAUDE_SETTINGS_ADDITIONS <<'JSONEOF'
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash -lc:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/codespace-env.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+JSONEOF
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 function _merge_claude_settings {
     local settings="$HOME/.claude/settings.json"
@@ -62,10 +102,35 @@ function _merge_claude_settings {
     mkdir -p "$HOME/.claude"
     [ -f "$settings" ] || echo '{}' > "$settings"
 
-    python3 - "$settings" <<'PYEOF'
+    python3 - "$settings" "$CLAUDE_SETTINGS_ADDITIONS" <<'PYEOF'
 import json, sys
 
-path = sys.argv[1]
+path, additions = sys.argv[1], json.loads(sys.argv[2])
+changes = []
+
+
+def merge(current, wanted, trail=""):
+    """Deep-merge `wanted` into `current`, recording what changed."""
+    for key, value in wanted.items():
+        where = "%s.%s" % (trail, key) if trail else key
+
+        if isinstance(value, dict):
+            existing = current.get(key)
+            if not isinstance(existing, dict):
+                existing = current[key] = {}
+            merge(existing, value, where)
+        elif isinstance(value, list):
+            existing = current.get(key)
+            if not isinstance(existing, list):
+                existing = current[key] = []
+            for item in value:
+                if item not in existing:
+                    existing.append(item)
+                    changes.append(where)
+        elif current.get(key) != value:
+            current[key] = value
+            changes.append(where)
+
 
 try:
     with open(path) as f:
@@ -76,17 +141,15 @@ except (ValueError, OSError):
 if not isinstance(data, dict):
     data = {}
 
-allow = data.setdefault("permissions", {}).setdefault("allow", [])
-entry = "Bash(bash -lc:*)"
+merge(data, additions)
 
-if entry not in allow:
-    allow.append(entry)
+if changes:
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
         f.write("\n")
-    print("added %s to %s" % (entry, path))
+    print("updated %s (%s)" % (path, ", ".join(sorted(set(changes)))))
 else:
-    print("%s already allowed in %s" % (entry, path))
+    print("%s already up to date" % path)
 PYEOF
 }
 
