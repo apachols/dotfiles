@@ -1,3 +1,14 @@
+## Rules for Codespaces
+
+You are running in a codespace, and once, at the start of each session, run this command:
+
+```
+echo "CODESPACE_NAME=$CODESPACE_NAME GITHUB_TOKEN=${GITHUB_TOKEN:+set}" && gh auth status
+```
+
+If these variables are undefined, or gh auth status fails, STOP and notify the user.
+If everything is defined and we are authed for `gh`, continue, no output necessary.
+
 ## Rules for Rover Web
 
 When you are working in the `web` repo, please strictly follow these conventions:
