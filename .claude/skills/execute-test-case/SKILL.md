@@ -54,8 +54,18 @@ invocation, even when running several cases. Note the UTC start time for `run.js
 
 ## 4. Execute each test case
 
-Load the `rover-site-interaction` skill first, then drive the browser with `playwright-cli`
-(ad-hoc). Per case:
+Before touching the browser, read the Rover site interaction guide in the `web` checkout:
+
+```bash
+cat .claude/skills/rover-site-interaction/SKILL.md
+```
+
+It carries the credentials, fixture templates and entrypoints, service-type slugs, URL patterns,
+and modal/cookie quirks. Read it in full — do not guess a fixture slug or a password. Then read
+[Rover webapp Playwright testing best practices](#rover-webapp-playwright-testing-best-practices)
+below for the `execute-test-case`-specific rules that layer on top of it.
+
+Drive the browser with `playwright-cli` (ad-hoc). Per case:
 
 1. `mkdir -p <run>/test-case-<K>/screenshots`.
 2. **Preconditions.** Set feature flags / switches exactly as "Test Conditions" says. Record the
@@ -102,6 +112,29 @@ Report to the user:
 - a one-line verdict per case
 - anything that changed outside the results dir (PR body edits, fixture data left behind, flags
   restored)
+
+## Rover webapp Playwright testing best practices
+
+`execute-test-case`-specific rules for driving the Rover webapp. These sit on top of
+`rover-site-interaction`; that skill is the general guide, this section is what test-case
+execution needs in addition.
+
+### Feature flags
+
+- **Gargoyle flags.** Go to `/admin/nexus/gargoyle`, search for the flag, and set it to
+  **Global** (enabled) or **Disabled**. Consult the user before using **Selective** — its
+  conditions are easy to get wrong and hard to notice.
+- **Statsig gates.** Go to the gate's page directly (e.g.
+  `/admin/statsig_gates/rollout_recurring_sales_tax_recoupment/`) or search the flag name in
+  `/admin/statsig_gates/`. For local, set **environment type** to `development` and set the **ID**
+  to the Codespace ID. The admin dropdown should offer that Codespace as its only option — if it
+  does not, get the value from the Codespace env var and tell the user the dropdown looked wrong:
+  ```bash
+  echo $CODESPACE_NAME   # e.g. bookish-space-guide-4v94j4pjxv2q6gx
+  ```
+
+Screenshot every flag page after the change, and record the as-found value so step 4.7 can
+restore it.
 
 ## Guardrails
 

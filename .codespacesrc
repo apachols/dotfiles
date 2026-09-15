@@ -7,8 +7,6 @@ export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
 
 cd /workspaces/web
 
-echo -e "CODESPACESRC\n"
-
 source profile
 
 source /workspaces/web/venv/bin/activate
