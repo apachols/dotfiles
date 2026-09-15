@@ -72,6 +72,10 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
    as-found state so it can be restored. Screenshot each flag admin page.
 3. **Fixture.** Create the fixture template named in the PR with the specified parameters. Use the
    fixture entry point (`view_as_requester`, etc.) to authenticate.
+
+   Heads up: some fixtures 500 on the page load right after the build completes — the records
+   that were just created are not visible to that request yet (race condition). Refresh the page;
+   it should load. If it still 500s after a refresh, stop and tell the user.
 4. **DB checks.** Where the PR gives a `shell_plus` snippet, run it via `m shell_plus` and record
    the values. Screenshot admin pages that prove non-obvious data state.
 5. **Execute.** Follow "Test Execution". Screenshot the full page, then each element the
