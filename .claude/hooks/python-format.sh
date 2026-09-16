@@ -42,6 +42,7 @@ fi
 
 errors=$(mktemp)
 trap 'rm -f "$errors"' EXIT
+"$ruff" check --fix "$file_path" >/dev/null 2>&1
 diff_output=$("$ruff" format --diff "$file_path" 2>"$errors")
 
 case $? in
