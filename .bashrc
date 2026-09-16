@@ -12,8 +12,10 @@ alias ..="cd .."
 alias ...="cd ../.."
 alias ....="cd ../../.."
 
-bind '"\e\e[C": forward-word'
-bind '"\e\e[D": backward-word'
+if [[ $- == *i* ]]; then
+  bind '"\e\e[C": forward-word'
+  bind '"\e\e[D": backward-word'
+fi
 
 alias ll='ls -AlG'
 alias v='code -r'
