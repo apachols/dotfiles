@@ -51,11 +51,17 @@ function personalize {
     # merge required permissions into ~/.claude/settings.json
     _merge_claude_settings
 
-    # copy SessionStart hook that exports Codespace secrets to Bash tool commands
+    # copy every hook that gives a non-login session (desktop app, sshd, IDE) the
+    # env and tooling a login shell would have set up. Drop a new .sh in
+    # $DOTFILES_PATH/.claude/hooks and register it in CLAUDE_SETTINGS_ADDITIONS;
+    # nothing here needs to change.
     mkdir -p "$HOME/.claude/hooks"
-    cp -f "$DOTFILES_PATH/.claude/hooks/codespace-env.sh" "$HOME/.claude/hooks/codespace-env.sh"
-    chmod +x "$HOME/.claude/hooks/codespace-env.sh"
-    echo "copied codespace-env.sh to $HOME/.claude/hooks/codespace-env.sh"
+    for hook in "$DOTFILES_PATH"/.claude/hooks/*.sh; do
+        name=$(basename "$hook")
+        cp -f "$hook" "$HOME/.claude/hooks/$name"
+        chmod +x "$HOME/.claude/hooks/$name"
+        echo "copied $name to $HOME/.claude/hooks/"
+    done
 
     # copy personal.py
     cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
@@ -86,6 +92,18 @@ read -r -d '' CLAUDE_SETTINGS_ADDITIONS <<'JSONEOF'
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/codespace-env.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/python-format.sh",
+            "statusMessage": "Formatting Python with ruff..."
           }
         ]
       }
