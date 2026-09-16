@@ -95,3 +95,33 @@ function _sync_claude_skills()
     echo "linked skill: $name"
   done
 }
+
+function pytype()
+{
+  # mypy on specific files, the same way CI invokes it. Paths are relative to
+  # the repo root, so this pairs with gitfiles:
+  #   pytype $(gitfiles | grep '\.py$')
+  if [ $# -eq 0 ]; then
+    echo "pytype: usage: pytype path/from/repo/root/file.py [more.py ...]" >&2
+    return 1
+  fi
+
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null)
+  if [ -z "$root" ]; then
+    echo "pytype: not inside a git repo" >&2
+    return 1
+  fi
+
+  if [ ! -f "$root/config/mypy.ini" ]; then
+    echo "pytype: no config/mypy.ini under $root" >&2
+    return 1
+  fi
+
+  local python="python"
+  [ -x "$root/venv/bin/python" ] && python="$root/venv/bin/python"
+
+  ( cd "$root" && "$python" -m mypy \
+      --config-file config/mypy.ini \
+      --explicit-package-bases "$@" )
+}
