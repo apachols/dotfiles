@@ -17,6 +17,16 @@ When you are working in the `web` repo, please strictly follow these conventions
 
 The `web` repository is FULL of files with common / repeated / duplicate file names - forms.py, models.py, etc. Always print file names namespaced to the django app folder they are in: seo/models.py, api/current/serializers/models.py.
 
+### Mypy Type Checking
+
+When you need to run mypy type checking on python changes, some of the available info on how to run is outdated.
+
+Please use this method, which is what CI uses to check PRs after they go up. If you run into trouble running type checking this way, let the user know.
+
+```shell
+python -m mypy --config-file config/mypy.ini --explicit-package-bases $FILENM1 $FILENM2
+```
+
 ### Running Unit Tests
 
 - DO NOT run any unit tests unless I ask for that explicitly (ask first)
