@@ -203,17 +203,17 @@ Format the acceptance tests section like this — each test case titled with a `
 ### Test Cases
 
 ## Test Case 1
-[ ] Rollout flag off, nothing enrolls
+- [ ] Rollout flag off, nothing enrolls
 
 <single test case body>
 
 ## Test Case 2
-[ ] Rollout flag on, everyone enrolls
+- [ ] Rollout flag on, everyone enrolls
 
 <single test case body>
 
 ## Test Case 3
-[ ] Rollout flag on, recurring booking cycling
+- [ ] Rollout flag on, recurring booking cycling
 
 <single test case body>
 

@@ -2,13 +2,13 @@
 
 Canonical shape of **one** test case in the `### Test Cases` section of a PR body.
 The block wrapper around test cases (the `## Test Case N` headings) lives in
-`pr-template.md` — this file governs only what goes *inside* one case.
+`pr-template.md` — this file governs only what goes _inside_ one case.
 
 ## Shape
 
 ```
 ## Test Case N
-[ ] <one-line summary of what this case proves>
+- [ ] <one-line summary of what this case proves>
 
 ### Test Conditions
 - <precondition>
