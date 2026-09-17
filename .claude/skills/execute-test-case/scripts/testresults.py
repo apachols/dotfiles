@@ -16,6 +16,7 @@ Results live under a single directory (the "results dir"), remembered in
         index.html                        <- generated
         test-case-<K>/
           result.md                       <- written by the agent (YAML frontmatter + markdown)
+          test-case.md                    <- written by the agent (verbatim PR test-case section)
           index.html                      <- generated
           screenshots/NN-slug.png
 
@@ -117,6 +118,27 @@ figure img {
 figcaption { font-size: 13px; color: var(--muted); margin-top: 6px; }
 figcaption .fname { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .empty { color: var(--muted); border: 1px dashed var(--line); border-radius: 8px; padding: 22px; text-align: center; }
+details.spec {
+  border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+  padding: 10px 14px; margin: 0 0 22px;
+}
+details.spec > summary {
+  cursor: pointer; font-size: 13px; font-weight: 600; color: var(--muted);
+  letter-spacing: .02em;
+}
+details.spec > summary:hover { color: var(--fg); }
+details.spec .md { margin-top: 10px; }
+details.spec .md > :first-child { margin-top: 0; }
+details.spec .md h2 { font-size: 15px; border: 0; margin: 18px 0 8px; }
+details.spec .md h3 { font-size: 14px; }
+details.spec details { margin: 10px 0; padding-left: 12px; border-left: 2px solid var(--line); }
+details.spec details > summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+table.links { border-collapse: collapse; margin: 12px 0 0; font-size: 14px; width: 100%; }
+table.links th, table.links td {
+  border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top;
+}
+table.links th { background: var(--card); }
+table.links td.kind { color: var(--muted); white-space: nowrap; }
 """
 
 
@@ -207,9 +229,18 @@ def strip_redundant_heading(md_text: str) -> str:
 
 def to_html(md_text: str) -> str:
     rendered = markdown.markdown(
-        md_text, extensions=["tables", "fenced_code", "attr_list", "sane_lists"]
+        md_text,
+        extensions=["tables", "fenced_code", "attr_list", "sane_lists", "md_in_html"],
     )
     return EMPTY_THEAD_RE.sub("", rendered)
+
+
+BARE_DETAILS_RE = re.compile(r"<details(?![^>]*\bmarkdown=)([^>]*)>", re.IGNORECASE)
+
+
+def enable_md_in_details(md_text: str) -> str:
+    """PR bodies wrap manual steps in <details>; keep that markdown rendering."""
+    return BARE_DETAILS_RE.sub(r'<details markdown="1"\1>', md_text)
 
 
 def natural_key(value: str) -> list:
@@ -237,11 +268,50 @@ def rel_href(path: Path, start: Path) -> str:
 
 
 @dataclass
+class AdminLink:
+    url: str
+    label: str
+    scenario: str = ""
+    kind: str = ""
+
+
+def parse_admin_links(value) -> list[AdminLink]:
+    """Read `adminLinks` from result.md frontmatter, tolerating loose shapes.
+
+    Accepts a list of mappings (`url` plus optional `label`, `scenario`, `kind`),
+    bare URL strings, or a `{label: url}` mapping. Entries with no URL are dropped.
+    """
+    if isinstance(value, dict):
+        value = [{"label": key, "url": url} for key, url in value.items()]
+    if not isinstance(value, list):
+        return []
+    links: list[AdminLink] = []
+    for entry in value:
+        if isinstance(entry, str):
+            url, label, scenario, kind = entry.strip(), "", "", ""
+        elif isinstance(entry, dict):
+            url = str(entry.get("url") or entry.get("href") or "").strip()
+            label = str(entry.get("label") or "").strip()
+            scenario = str(entry.get("scenario") or "").strip()
+            kind = str(entry.get("kind") or "").strip()
+        else:
+            continue
+        if not url:
+            continue
+        links.append(
+            AdminLink(url=url, label=label or url, scenario=scenario, kind=kind)
+        )
+    return links
+
+
+@dataclass
 class Case:
     directory: Path
     meta: dict
     body_md: str
     images: list[Path]
+    spec_md: str = ""
+    admin_links: list[AdminLink] = field(default_factory=list)
 
     @property
     def slug(self) -> str:
@@ -325,8 +395,15 @@ def load_case(directory: Path) -> Case | None:
         (p for p in search_dir.iterdir() if p.suffix.lower() in IMAGE_SUFFIXES),
         key=lambda p: natural_key(p.name),
     )
+    spec = directory / "test-case.md"
+    spec_md = spec.read_text(encoding="utf-8") if spec.is_file() else ""
     return Case(
-        directory=directory, meta=meta, body_md=strip_redundant_heading(body), images=images
+        directory=directory,
+        meta=meta,
+        body_md=strip_redundant_heading(body),
+        images=images,
+        spec_md=enable_md_in_details(spec_md.strip()),
+        admin_links=parse_admin_links(meta.get("adminLinks")),
     )
 
 
@@ -428,6 +505,43 @@ def write_run_page(run: Run) -> Path:
     return target
 
 
+def render_spec(case: Case) -> str:
+    """Collapsed block with the PR's original test-case text, above the result."""
+    if not case.spec_md:
+        return ""
+    return (
+        '<details class="spec"><summary>Original test description (from the PR body)'
+        "</summary>"
+        f'<div class="md">{to_html(case.spec_md)}</div></details>'
+    )
+
+
+def render_admin_links(case: Case) -> str:
+    if not case.admin_links:
+        return ""
+    has_scenario = any(link.scenario for link in case.admin_links)
+    has_kind = any(link.kind for link in case.admin_links)
+    head = (
+        ("<th>Scenario</th>" if has_scenario else "")
+        + "<th>Admin page</th>"
+        + ("<th>Type</th>" if has_kind else "")
+    )
+    rows = "".join(
+        "<tr>"
+        + (f"<td>{html.escape(link.scenario)}</td>" if has_scenario else "")
+        + f'<td><a href="{html.escape(link.url)}">{html.escape(link.label)}</a></td>'
+        + (f'<td class="kind">{html.escape(link.kind)}</td>' if has_kind else "")
+        + "</tr>"
+        for link in case.admin_links
+    )
+    return (
+        "<h2>Admin links</h2>"
+        '<p class="sub">Django admin pages for the records this case created. '
+        "Only resolvable while local dev is running.</p>"
+        f'<table class="links"><thead><tr>{head}</tr></thead><tbody>{rows}</tbody></table>'
+    )
+
+
 def write_case_page(run: Run, case: Case) -> Path:
     gallery = "".join(
         f'<figure><a href="{html.escape(rel_href(image, case.directory))}">'
@@ -442,7 +556,9 @@ def write_case_page(run: Run, case: Case) -> Path:
     body = (
         f"<h1>{html.escape(case.label)} {badge(case.status)}</h1>"
         f'<p class="sub">{html.escape(case.title)}</p>'
+        f"{render_spec(case)}"
         f'<div class="md">{to_html(case.body_md)}</div>'
+        f"{render_admin_links(case)}"
         f"<h2>Screenshots</h2>{gallery}"
     )
     target = case.directory / "index.html"

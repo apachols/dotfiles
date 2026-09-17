@@ -14,6 +14,7 @@ generated and may be regenerated at any time with `testresults.py build`.
     index.html                            generated: run facts + case list
     test-case-<K>/
       result.md
+      test-case.md                        the PR's "## Test Case K" section, verbatim
       index.html                          generated: rendered result.md + screenshot gallery
       screenshots/
         01-<slug>.png
@@ -33,6 +34,10 @@ YAML frontmatter, then markdown. The renderer:
 - renders tables, fenced code, and attr_list markdown
 - lists every `.png/.jpg/.jpeg/.webp/.gif` in `screenshots/` (falls back to the case dir),
   natural-sorted, captioned from the filename minus its numeric prefix
+- renders `adminLinks` as an "Admin links" table between the body and the gallery
+
+Page order on the case page: verdict header, collapsed `test-case.md`, rendered `result.md`,
+admin links, screenshots.
 
 ```markdown
 ---
@@ -45,6 +50,11 @@ method: playwright (ad-hoc, rover-site-interaction)
 pr: 101753
 branch: DEV-156339-prototype-stream-c-rebase
 ticket: DEV-156339
+adminLinks:
+  - scenario: Unbooked recurring request (Seattle WA 98104)
+    label: Conversation nkQ3pWA2 (pk 41)
+    url: http://rover.local:8001/admin/conversations/conversation/41/change/
+    kind: conversation
 ---
 
 # Test Case 2 — No sentinel estimate falls back to disclosure copy, not a wrong number
@@ -111,6 +121,31 @@ Section order above is the convention; drop a section only when it has nothing t
 Every row in "Expected vs actual" maps to one bullet of the PR's "Expected Result" and cites the
 screenshot that proves it.
 
+## `adminLinks`
+
+One entry per scenario the case exercised — per fixture build, per variant, per conversation — so
+the next reader can jump straight into the data the run created:
+
+```yaml
+adminLinks:
+  - scenario: Build B — Honolulu HI 96814 (the run this case is scored on)
+    label: Conversation PbN8rqQ6 (pk 36)
+    url: http://rover.local:8001/admin/conversations/conversation/36/change/
+    kind: conversation
+```
+
+| Key | Required | Notes |
+|---|---|---|
+| `url` | yes | Absolute, including the dev host, so the link works from the results page. Entries without it are dropped. |
+| `label` | no | Link text; defaults to the URL. Include the OPK and the pk. |
+| `scenario` | no | Which scenario/build it belongs to. The column appears only when some entry has it. |
+| `kind` | no | `conversation`, `order`, … The column appears only when some entry has it. |
+
+Prefer conversation admin pages — requests, orders, relationships, and users are all reachable
+from there. Order admin pages are the next best. One link per scenario; not every record visited.
+
+Loose shapes also parse: a list of bare URL strings, or a `{label: url}` mapping.
+
 ## `run.json`
 
 ```json
@@ -144,6 +179,16 @@ page comes from the `test-case-*` directories.
 
 Run-level status shown on the index is derived from the cases: any `fail` → FAIL, else any
 `blocked` → BLOCKED, else any missing status → UNKNOWN, else any `skip` → SKIPPED, else PASS.
+
+## `test-case.md`
+
+The PR body's whole `## Test Case K` section, copied verbatim — heading, `### Test Conditions`,
+`### Test Execution`, `### Expected Result`, and the `<details>` manual-instructions block. No
+frontmatter, no edits, no summary. It pins what the PR asked for at the tested commit, so a later
+run can tell a real regression from a test case that was rewritten between runs.
+
+The renderer puts it in a collapsed `<details>` at the top of the case page and renders markdown
+inside the PR's own `<details>` blocks. Missing file → no block, no error.
 
 ## `README.md`
 

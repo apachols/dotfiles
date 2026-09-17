@@ -68,22 +68,38 @@ below for the `execute-test-case`-specific rules that layer on top of it.
 Drive the browser with `playwright-cli` (ad-hoc). Per case:
 
 1. `mkdir -p <run>/test-case-<K>/screenshots`.
-2. **Preconditions.** Set feature flags / switches exactly as "Test Conditions" says. Record the
+2. **Capture the spec.** Copy the PR body's whole `## Test Case N` section — heading, Test
+   Conditions, Test Execution, Expected Result, and the `<details>` manual-instructions block —
+   verbatim into `<run>/test-case-<K>/test-case.md`. Do not summarize or reword it: this is the
+   record of what the PR asked for at this commit, so a later run can tell a real regression from
+   a rewritten test case. The case page renders it in a collapsed block at the top.
+3. **Preconditions.** Set feature flags / switches exactly as "Test Conditions" says. Record the
    as-found state so it can be restored. Screenshot each flag admin page.
-3. **Fixture.** Create the fixture template named in the PR with the specified parameters. Use the
+4. **Fixture.** Create the fixture template named in the PR with the specified parameters. Use the
    fixture entry point (`view_as_requester`, etc.) to authenticate.
 
    Heads up: some fixtures 500 on the page load right after the build completes — the records
    that were just created are not visible to that request yet (race condition). Refresh the page;
    it should load. If it still 500s after a refresh, stop and tell the user.
-4. **DB checks.** Where the PR gives a `shell_plus` snippet, run it via `m shell_plus` and record
+5. **DB checks.** Where the PR gives a `shell_plus` snippet, run it via `m shell_plus` and record
    the values. Screenshot admin pages that prove non-obvious data state.
-5. **Execute.** Follow "Test Execution". Screenshot the full page, then each element the
+6. **Execute.** Follow "Test Execution". Screenshot the full page, then each element the
    "Expected Result" bullets talk about. Read the actual text / numbers off the page — do not
    infer them.
-6. **Verdict.** `pass` only if every expected-result bullet matches exactly. Otherwise `fail`
+7. **Admin links.** For every scenario the case ran — each fixture build, each variant, each
+   separate conversation — record one admin link, in `adminLinks` in the `result.md` frontmatter
+   (schema in `references/result-format.md`). Prefer the **conversation** admin page: it is the
+   hub of the domain and everything else (requests, orders, relationships, users) is reachable
+   from it. Fall back to the **order** admin page, then to whatever record the case is actually
+   about. One link per scenario is the target — do not dump every record you visited.
+
+   Get the URL by navigating there, not by guessing a path: open the conversation in admin (search
+   its OPK from the conversation admin changelist, or follow the link from the order) and copy the
+   address bar. Absolute URLs including the local host (`http://rover.local:8001/...`), so the
+   link works from the results page.
+8. **Verdict.** `pass` only if every expected-result bullet matches exactly. Otherwise `fail`
    with the mismatch, or `blocked` if a precondition could not be established.
-7. **Restore** flags/switches to their as-found state. Say so in the notes.
+9. **Restore** flags/switches to their as-found state. Say so in the notes.
 
 Screenshot naming: `NN-kebab-slug.png`, zero-padded, in execution order
 (`01-rollout-gate-on.png`, `04-price-ledger.png`). The gallery caption is derived from the slug.
@@ -94,8 +110,9 @@ Save them with `playwright-cli screenshot --path <run>/test-case-<K>/screenshots
 
 Read `references/result-format.md` for the exact schemas and a worked example. In short:
 
+- `<run>/test-case-<K>/test-case.md` — the PR's `## Test Case N` section, verbatim (step 4.2).
 - `<run>/test-case-<K>/result.md` — YAML frontmatter (`testCase`, `title`, `status`, `executedAt`,
-  `executedBy`, `method`, `pr`, `branch`, `ticket`) then markdown: Environment, Flag state,
+  `executedBy`, `method`, `pr`, `branch`, `ticket`, `adminLinks`) then markdown: Environment, Flag state,
   Fixture / data setup, Preconditions verified in the DB, Expected vs actual table (one row per
   expected-result bullet, each citing a screenshot), Screenshots table, Notes / follow-ups.
 - `<run>/run.json` — run manifest (`runId`, `startedAt`, `finishedAt`, `pr`, `prUrl`, `ticket`,
@@ -110,6 +127,8 @@ uv run --script <skill>/scripts/testresults.py build
 ```
 
 Regenerates `index.html` at the root, run, and case levels (all relative links, inline CSS).
+The case page carries, in order: verdict header, the collapsed original test description from
+`test-case.md`, the rendered `result.md`, the `adminLinks` table, then the screenshot gallery.
 Report to the user:
 
 - the `open: file://...` URL the build printed, plus the direct `file://` URL of the run page
