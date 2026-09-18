@@ -30,6 +30,8 @@ are ignored. A run dir with no `test-case-*/result.md` is ignored.
 YAML frontmatter, then markdown. The renderer:
 
 - reads `testCase` (label "Test Case K"), `title`, `status` (`pass` | `fail` | `skip` | `blocked`)
+- ignores every other frontmatter key, including `model` / `effort` / `tokenSpend` — those are
+  stored for machines; the reader sees them in the body's **Agent run** table
 - strips a leading `# ...` H1 and a leading `**Result: ...**` line (the page header shows both)
 - renders tables, fenced code, and attr_list markdown
 - lists every `.png/.jpg/.jpeg/.webp/.gif` in `screenshots/` (falls back to the case dir),
@@ -47,6 +49,9 @@ status: pass
 executedAt: 2026-09-10T20:49:29Z
 executedBy: claude-code
 method: playwright (ad-hoc, rover-site-interaction)
+model: Opus 5 (claude-opus-5)
+effort: high
+tokenSpend: 412k input / 38k output (session cumulative at case end)
 pr: 101753
 branch: DEV-156339-prototype-stream-c-rebase
 ticket: DEV-156339
@@ -60,6 +65,14 @@ adminLinks:
 # Test Case 2 — No sentinel estimate falls back to disclosure copy, not a wrong number
 
 **Result: PASS**
+
+## Agent run
+
+| | |
+|---|---|
+| Model | Opus 5 (`claude-opus-5`) |
+| Effort | high (fast mode off) |
+| Token spend | 412k input / 38k output — session cumulative at case end |
 
 ## Environment
 
@@ -161,6 +174,9 @@ Loose shapes also parse: a list of bare URL strings, or a `{label: url}` mapping
   "commit": "7fbf4d2515ca",
   "target": "http://rover.local:8001",
   "executedBy": "claude-code",
+  "model": "Opus 5 (claude-opus-5)",
+  "effort": "high",
+  "tokenSpend": "450k input / 41k output (whole run)",
   "cases": [
     {
       "id": "test-case-2",
@@ -174,7 +190,9 @@ Loose shapes also parse: a list of bare URL strings, or a `{label: url}` mapping
 ```
 
 The renderer shows `title`, `pr`/`prUrl`, `ticket`, `branch`, `commit`, `target`, `executedBy`,
-and `finishedAt` (falling back to `startedAt`). `cases[]` is informational; the case list on the
+and `finishedAt` (falling back to `startedAt`). `model`, `effort`, and `tokenSpend` are recorded
+here for the whole run but are not rendered on the run page — the per-case **Agent run** table is
+where a reader sees them. `cases[]` is informational; the case list on the
 page comes from the `test-case-*` directories.
 
 Run-level status shown on the index is derived from the cases: any `fail` → FAIL, else any

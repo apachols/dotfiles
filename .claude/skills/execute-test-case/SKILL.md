@@ -112,11 +112,29 @@ Read `references/result-format.md` for the exact schemas and a worked example. I
 
 - `<run>/test-case-<K>/test-case.md` — the PR's `## Test Case N` section, verbatim (step 4.2).
 - `<run>/test-case-<K>/result.md` — YAML frontmatter (`testCase`, `title`, `status`, `executedAt`,
-  `executedBy`, `method`, `pr`, `branch`, `ticket`, `adminLinks`) then markdown: Environment, Flag state,
-  Fixture / data setup, Preconditions verified in the DB, Expected vs actual table (one row per
-  expected-result bullet, each citing a screenshot), Screenshots table, Notes / follow-ups.
+  `executedBy`, `method`, `model`, `effort`, `tokenSpend`, `pr`, `branch`, `ticket`, `adminLinks`)
+  then markdown: **Agent run** table (first section, right under the `**Result:**` line), Environment,
+  Flag state, Fixture / data setup, Preconditions verified in the DB, Expected vs actual table (one
+  row per expected-result bullet, each citing a screenshot), Screenshots table, Notes / follow-ups.
 - `<run>/run.json` — run manifest (`runId`, `startedAt`, `finishedAt`, `pr`, `prUrl`, `ticket`,
-  `title`, `branch`, `commit`, `target`, `executedBy`, `cases[]`).
+  `title`, `branch`, `commit`, `target`, `executedBy`, `model`, `effort`, `tokenSpend`, `cases[]`).
+
+### Recording the agent's own identity and cost
+
+Every `result.md` records which model ran the case, at what effort/thinking level, and roughly what
+it cost. The renderer only prints frontmatter keys it knows about, so write the values **twice**:
+in the frontmatter (machine-readable) and in the **Agent run** markdown table (what the reader
+sees on the case page).
+
+| Field | Where the value comes from |
+|---|---|
+| `model` | The model name and exact model ID from this session's environment (e.g. `Opus 5 (claude-opus-5)`). Do not guess a version. |
+| `effort` | The reasoning/effort or thinking level in force for this session (e.g. `high`), plus fast mode if on. If nothing set it, write `default`. |
+| `tokenSpend` | Cumulative token usage for the session at the time the case finished, as the harness reports it. |
+
+Token spend is session-cumulative, not per-case: when several cases share one invocation, note the
+running total per case and say so. If a value genuinely is not available, write `unavailable` —
+never invent a number.
 - `<run>/README.md` — one-paragraph summary plus a Case / Title / Result table; say which of the
   PR's cases were **not** executed.
 
