@@ -100,6 +100,13 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
 8. **Verdict.** `pass` only if every expected-result bullet matches exactly. Otherwise `fail`
    with the mismatch, or `blocked` if a precondition could not be established.
 9. **Restore** flags/switches to their as-found state. Say so in the notes.
+10. **Log friction.** Whenever something outside the test case itself gets in the way — a broken or
+    missing dev-env dependency, a service that had to be restarted, a fixture that 500s, a stale
+    migration, a wrong or missing credential, a flaky selector, a PR-body link that 404s, a slug or
+    URL in a skill doc that no longer matches the app, a workaround you had to invent — append an
+    entry to `<run>/issues.md` (see step 5). Log it even when you worked around it: the point is a
+    list the user can act on later. Do not let logging an issue change the verdict — a dev-env
+    problem is `blocked`, not `fail`, only when it stopped the case from running.
 
 Screenshot naming: `NN-kebab-slug.png`, zero-padded, in execution order
 (`01-rollout-gate-on.png`, `04-price-ledger.png`). The gallery caption is derived from the slug.
@@ -136,7 +143,20 @@ Token spend is session-cumulative, not per-case: when several cases share one in
 running total per case and say so. If a value genuinely is not available, write `unavailable` —
 never invent a number.
 - `<run>/README.md` — one-paragraph summary plus a Case / Title / Result table; say which of the
-  PR's cases were **not** executed.
+  PR's cases were **not** executed. Do not link `issues.md` by hand — the build links it.
+- `<run>/issues.md` — the friction log from step 4.10. Create it only if there was something to
+  log; skip the file entirely on a clean run. Format: `# Issues hit during this run`, then one
+  `## <short title>` per problem with these lines:
+
+  - **What happened** — the symptom, with the exact error text quoted.
+  - **Where** — the case number and step, or "setup" / "environment".
+  - **Workaround** — what you did to get past it, or `none — blocked`.
+  - **Suggested fix** — the concrete change, and where it belongs (dev env, a skill doc, the PR
+    body, the app). Write `unknown` rather than guessing.
+
+  Keep the entries independent — the user may act on one and ignore the rest. The build turns
+  this file into `<run>/issues.html` and puts a banner linking to it at the top of the run page
+  and every case page, so the headings are what the reader scans — make them specific.
 
 ## 6. Build and hand off
 
@@ -144,7 +164,8 @@ never invent a number.
 uv run --script <skill>/scripts/testresults.py build
 ```
 
-Regenerates `index.html` at the root, run, and case levels (all relative links, inline CSS).
+Regenerates `index.html` at the root, run, and case levels (all relative links, inline CSS), plus
+`issues.html` for any run that has an `issues.md`.
 The case page carries, in order: verdict header, the collapsed original test description from
 `test-case.md`, the rendered `result.md`, the `adminLinks` table, then the screenshot gallery.
 Report to the user:
@@ -153,6 +174,9 @@ Report to the user:
 - a one-line verdict per case
 - anything that changed outside the results dir (PR body edits, fixture data left behind, flags
   restored)
+- if `issues.md` exists, a single line calling it out with the `file://` URL of the generated
+  `issues.html`, e.g. `hit 3 environment issues — see file:///<run>/issues.html`. Do not paste the
+  entries into chat; one line plus the link. Say nothing about issues on a clean run.
 
 ## Rover webapp Playwright testing best practices
 

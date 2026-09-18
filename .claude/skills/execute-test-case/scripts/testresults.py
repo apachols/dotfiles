@@ -13,7 +13,9 @@ Results live under a single directory (the "results dir"), remembered in
       <YYYYMMDDTHHMMZ>-pr-<N>/
         run.json                          <- written by the agent
         README.md                         <- written by the agent
+        issues.md                         <- written by the agent (optional friction log)
         index.html                        <- generated
+        issues.html                       <- generated (only when issues.md exists)
         test-case-<K>/
           result.md                       <- written by the agent (YAML frontmatter + markdown)
           test-case.md                    <- written by the agent (verbatim PR test-case section)
@@ -48,6 +50,7 @@ import yaml
 CONFIG_PATH = Path(os.environ.get("EXECUTE_TEST_CASE_CONFIG", "~/.claude/execute-test-case.json")).expanduser()
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n?", re.DOTALL)
+ISSUE_HEADING_RE = re.compile(r"^##\s+\S", re.MULTILINE)
 RUN_NAME_RE = re.compile(r"\A(?P<stamp>[0-9]{8}T[0-9]{4}Z)(?:-pr-(?P<pr>[0-9]+))?")
 PR_URL_TEMPLATE = "https://github.com/roverdotcom/web/pull/{pr}"
 
@@ -139,6 +142,14 @@ table.links th, table.links td {
 }
 table.links th { background: var(--card); }
 table.links td.kind { color: var(--muted); white-space: nowrap; }
+a.notice {
+  display: block; margin: 0 0 18px; padding: 11px 14px; text-decoration: none;
+  border: 1px solid var(--line); border-left: 3px solid var(--fail-fg);
+  border-radius: 8px; background: var(--fail-bg); color: var(--fail-fg); font-size: 14px;
+}
+a.notice:hover { filter: brightness(1.04); text-decoration: underline; }
+a.notice .what { font-weight: 600; }
+.issues h2 { font-size: 16px; }
 """
 
 
@@ -339,6 +350,19 @@ class Run:
     directory: Path
     meta: dict = field(default_factory=dict)
     cases: list[Case] = field(default_factory=list)
+    issues_md: str = ""
+
+    @property
+    def issue_count(self) -> int:
+        """Entries in issues.md - one per `## ` heading, else 1 for loose prose."""
+        if not self.issues_md:
+            return 0
+        return len(ISSUE_HEADING_RE.findall(self.issues_md)) or 1
+
+    @property
+    def issues_label(self) -> str:
+        count = self.issue_count
+        return f"{count} issue{'s' if count != 1 else ''} logged"
 
     @property
     def slug(self) -> str:
@@ -427,7 +451,9 @@ def load_run(directory: Path) -> Run | None:
             meta = loaded if isinstance(loaded, dict) else {}
         except json.JSONDecodeError:
             meta = {}
-    return Run(directory=directory, meta=meta, cases=cases)
+    issues = directory / "issues.md"
+    issues_md = issues.read_text(encoding="utf-8").strip() if issues.is_file() else ""
+    return Run(directory=directory, meta=meta, cases=cases, issues_md=issues_md)
 
 
 def discover_runs(results_dir: Path) -> list[Run]:
@@ -456,6 +482,7 @@ def write_index(results_dir: Path, runs: list[Run]) -> Path:
             f'<span class="meta">{html.escape(run.when)}<br>'
             f'{len(run.cases)} case{"s" if len(run.cases) != 1 else ""}'
             + (f" &middot; PR #{run.pr}" if run.pr else "")
+            + (f" &middot; {html.escape(run.issues_label)}" if run.issues_md else "")
             + "</span></a></li>"
             for run in runs
         )
@@ -470,6 +497,36 @@ def write_index(results_dir: Path, runs: list[Run]) -> Path:
         )
     target = results_dir / "index.html"
     target.write_text(render_page("Test results", [("Test results", None)], body), encoding="utf-8")
+    return target
+
+
+def issues_notice(run: Run, href: str) -> str:
+    """Banner linking to the run's friction log; empty when the run was clean."""
+    if not run.issues_md:
+        return ""
+    return (
+        f'<a class="notice" href="{html.escape(href)}">'
+        f'<span class="what">{html.escape(run.issues_label)}</span> during this run &mdash; '
+        "environment problems and other fixable issues hit while testing. Read them &rarr;</a>"
+    )
+
+
+def write_issues_page(run: Run) -> Path:
+    body = (
+        f"<h1>Issues &mdash; {html.escape(run.title)}</h1>"
+        '<p class="sub">Environment problems and other fixable issues hit while running this '
+        "test run. Not test failures &mdash; see the case pages for verdicts.</p>"
+        f'<div class="md issues">{to_html(run.issues_md)}</div>'
+    )
+    target = run.directory / "issues.html"
+    target.write_text(
+        render_page(
+            f"Issues — {run.slug}",
+            [("Test results", "../index.html"), (run.slug, "index.html"), ("Issues", None)],
+            body,
+        ),
+        encoding="utf-8",
+    )
     return target
 
 
@@ -494,6 +551,7 @@ def write_run_page(run: Run) -> Path:
     body = (
         f"<h1>{html.escape(run.title)} {badge(run.status)}</h1>"
         f'<p class="sub"><code>{html.escape(run.slug)}</code></p>'
+        f'{issues_notice(run, "issues.html")}'
         f'<div class="md"><table>{fact_rows}</table></div>'
         f'<h2>Cases</h2><ul class="cards">{rows}</ul>'
     )
@@ -556,6 +614,7 @@ def write_case_page(run: Run, case: Case) -> Path:
     body = (
         f"<h1>{html.escape(case.label)} {badge(case.status)}</h1>"
         f'<p class="sub">{html.escape(case.title)}</p>'
+        f'{issues_notice(run, "../issues.html")}'
         f"{render_spec(case)}"
         f'<div class="md">{to_html(case.body_md)}</div>'
         f"{render_admin_links(case)}"
@@ -611,6 +670,8 @@ def cmd_build(args: argparse.Namespace) -> int:
     written = [write_index(results_dir, runs)]
     for run in runs:
         written.append(write_run_page(run))
+        if run.issues_md:
+            written.append(write_issues_page(run))
         for case in run.cases:
             written.append(write_case_page(run, case))
     for path in written:
