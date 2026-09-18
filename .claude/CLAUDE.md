@@ -37,18 +37,38 @@ source `.bash_profile`, `.bashrc`, or `.codespacesrc`. Only shell functions,
 aliases, `shopt` flags and `PATH` reach you, via Claude Code's per-session
 snapshot in `~/.claude/shell-snapshots/`. Every other `export` is dropped.
 
+One rc file per environment, all sourced from `.bash_profile`:
+
+```
+| Environment                                  | rc file          |
+| -------------------------------------------- | ---------------- |
+| Work laptop (`adam.pacholski`)               | `.roverrc`       |
+| Home laptop (`adamp`)                        | `.homerc`        |
+| Codespace, me sshed in (`vscode`/`codespace`)| `.codespacesrc`  |
+| Non-interactive Claude session (desktop app, sshd, IDE) | `.claude/hooks/codespace-env.sh` |
+```
+
 ```
 | Kind of change                                   | Goes in   |
 | ------------------------------------------------ | --------  |
-| Shell function, alias, `PATH` prefix             | `.bashrc` |
+| Shell function, alias, `shopt` flag — same everywhere | `.bashrc` |
+| `PATH` prefix                                    | each per-environment rc file that needs it — **not** `.bashrc` |
 | Env var, especially a computed one               | `.claude/hooks/codespace-env.sh`, appended to `$CLAUDE_ENV_FILE` |
 | Static env var, permission, or hook registration | `CLAUDE_SETTINGS_ADDITIONS` in `.codespacesrc` |
 ```
 
-Changes to `codespace-env.sh` or `.bashrc` only take effect in a **new** Claude
-session — the hook runs at `SessionStart` and the shell snapshot is taken then.
-If I just ran `personalize`, say so rather than assuming the current session
-already has the change.
+`PATH` prefixes are per-environment even when the directory exists everywhere,
+because `.bash_profile` sources the env rc file **first** and `.bashrc`
+**after**. Anything `.bashrc` prepends therefore lands ahead of what the rc file
+set up: ahead of pyenv shims and `/opt/homebrew/bin` on the home laptop, and
+ahead of `venv/bin` in a codespace (`.codespacesrc` runs `activate`). A shared
+`PATH` line in `.bashrc` can silently shadow the right `python` or `pip` in an
+environment I wasn't thinking about. Duplicate the line per rc file instead.
+
+Changes to `codespace-env.sh`, `.bashrc`, or an rc file only take effect in a
+**new** Claude session — the hook runs at `SessionStart` and the shell snapshot
+is taken then. If I just ran `personalize`, say so rather than assuming the
+current session already has the change.
 
 ## Rules for Rover Web
 
