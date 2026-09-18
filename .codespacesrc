@@ -1,5 +1,7 @@
 export BRANCH_COLOR='36m'
 
+export PATH="$HOME/.local/bin:$PATH"
+
 alias grep="grep --color=auto"
 
 export GEMFURY_API_TOKEN="GsM1tgeGkNyFHkFYd5qc"
@@ -14,8 +16,6 @@ source /workspaces/web/venv/bin/activate
 source /workspaces/web/profile
 
 source /workspaces/web/profile-codespaces
-
-alias claude="~/.local/bin/claude"
 
 alias sp='m shell_plus'
 

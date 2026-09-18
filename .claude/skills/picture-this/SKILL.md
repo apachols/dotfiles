@@ -93,7 +93,7 @@ measurement, and deviating clips text.
 | -------- | -------------------------------- | --------------------------- |
 | Grouping | mermaid `subgraph`, one per path | Component / path boundaries |
 | Emphasis | `classDef` + `class`             | Good path, gap, no-op       |
-| Status   | `✓` `✗` `⏳` `🔄` `⚠️` `🔴`      | Inline in node labels       |
+| Status   | `✅` `❌` `⏳` `🔄` `⚠️` `🔴`    | Inline in node labels       |
 | Legend   | HTML `<div>` under the diagram   | Explain every symbol used   |
 
 Semantic `classDef` palette — green for the working/eligible path, red for the
@@ -171,7 +171,11 @@ in one line that the rendered diagram wasn't available.
 
 ## <2> Bullet Point Section Rules
 
+- 200 words maximum. Prioritize!
+- No filler and as concise as possible
+- Treat this like we're building a slide deck, you want max understanding with minimum text
 - Name the actual function or file. Never "the system," "the handler," "the layer."
+- In fact, avoid abstractions and abstract language in describing software, and prefer concrete language and simplicity wherever possible.
 - If it doesn't fit, say what you left out and offer to expand that piece.
 
 ## <3> Relevant Files And Links section rules
@@ -189,10 +193,8 @@ Example Output:
 ```
 Files
 
-src/aplaceforrover/recurring/flags.py:120
-- recurring_schedule_web_management
-src/aplaceforrover/docker-dev.yml
-- config block for webhook container
+- src/aplaceforrover/recurring/flags.py:120 (recurring_schedule_web_management)
+- src/aplaceforrover/docker-dev.yml (config block for webhook container)
 ```
 
 ### 3b. Links

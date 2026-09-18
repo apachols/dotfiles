@@ -9,6 +9,47 @@ echo "CODESPACE_NAME=$CODESPACE_NAME GITHUB_TOKEN=${GITHUB_TOKEN:+set}" && gh au
 If these variables are undefined, or gh auth status fails, STOP and notify the user.
 If everything is defined and we are authed for `gh`, continue, no output necessary.
 
+My dotfiles live at `/workspaces/.codespaces/.persistedshare/dotfiles` in a
+codespace (`$DOTFILES_PATH`, aliased to `dotfiles`).
+
+**In a codespace, never edit anything under `$DOTFILES_PATH` yourself.** All
+dotfiles edits are made from my laptop and pushed. Show me the change as a
+snippet or a diff in chat and let me apply it there. The reason: my update
+command is `dotfiles && personalize && web`, where `dotfiles` does a `git pull`
+and _refuses to run on a dirty tree_ — so an uncommitted edit made here
+silently blocks my whole workflow.
+
+`personalize` (defined in `.codespacesrc`) then installs everything: it
+`cp -f`s each `.claude/hooks/*.sh` into `~/.claude/hooks/`, symlinks
+`.claude/CLAUDE.md` and `.claude/skills/*`, and deep-merges
+`CLAUDE_SETTINGS_ADDITIONS` into `~/.claude/settings.json`. Don't run
+`personalize` yourself — it needs `$DOTFILES_PATH` and `$WEB`, which are unset
+in your shells, and it will misfire.
+
+Never edit the installed copies under `~/.claude/` to "fix" something. Hooks are
+copies and `settings.json` is a merge, so edits there are invisible to version
+control and get overwritten on my next `personalize`.
+
+### Where a change belongs
+
+Your Bash tool shells are non-interactive and non-login, so they do **not**
+source `.bash_profile`, `.bashrc`, or `.codespacesrc`. Only shell functions,
+aliases, `shopt` flags and `PATH` reach you, via Claude Code's per-session
+snapshot in `~/.claude/shell-snapshots/`. Every other `export` is dropped.
+
+```
+| Kind of change                                   | Goes in   |
+| ------------------------------------------------ | --------  |
+| Shell function, alias, `PATH` prefix             | `.bashrc` |
+| Env var, especially a computed one               | `.claude/hooks/codespace-env.sh`, appended to `$CLAUDE_ENV_FILE` |
+| Static env var, permission, or hook registration | `CLAUDE_SETTINGS_ADDITIONS` in `.codespacesrc` |
+```
+
+Changes to `codespace-env.sh` or `.bashrc` only take effect in a **new** Claude
+session — the hook runs at `SessionStart` and the shell snapshot is taken then.
+If I just ran `personalize`, say so rather than assuming the current session
+already has the change.
+
 ## Rules for Rover Web
 
 When you are working in the `web` repo, please strictly follow these conventions:

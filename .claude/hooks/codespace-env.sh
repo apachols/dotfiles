@@ -21,6 +21,10 @@ if [ -r "$secrets" ]; then
     done < "$secrets" >> "$CLAUDE_ENV_FILE"
 fi
 
+# --- User-installed tools (claude, uv, ...) that a login shell puts on PATH ---
+[ -d "$HOME/.local/bin" ] &&
+    printf 'export PATH=%q:"$PATH"\n' "$HOME/.local/bin" >> "$CLAUDE_ENV_FILE"
+
 # --- Repo tooling that `source venv/bin/activate` would have supplied --------
 repo="${CLAUDE_PROJECT_DIR:-}"
 [ -n "$repo" ] || repo="$(git rev-parse --show-toplevel 2>/dev/null)"
