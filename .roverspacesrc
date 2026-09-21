@@ -1,0 +1,187 @@
+export BRANCH_COLOR='35m'
+
+export PATH="$HOME/.local/bin:$PATH"
+
+alias grep="grep --color=auto"
+
+cd /workspaces/web
+
+source profile
+
+source /workspaces/web/venv/bin/activate
+
+source /workspaces/web/profile
+
+source /workspaces/web/profile-codespaces
+
+alias sp='m shell_plus'
+
+alias web="cd $WEB"
+
+alias pruned='docker system prune -f'
+
+alias lt='dc logs --tail 456'
+
+alias elastichead='docker run -p 9100:9100 mobz/elasticsearch-head:5'
+
+export DC_PARAMS="--profile stripe"
+
+export PRE_COMMIT_ENABLED=true
+
+
+function dcps {
+    dc ps  --format='table {{ .Name }}\t{{ .Status }}'
+}
+
+function personalize {
+    # symlink any new skill dirs from dotfiles to ~/.claude/skills
+    _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$HOME/.claude/skills"
+
+    # ensure remote-sync target dir exists for mutagen (see remotesync in .roverrc)
+    mkdir -p "$HOME/obsidian/remote-sync"
+
+    # symlink global CLAUDE.md from dotfiles
+    ln -sfn "$DOTFILES_PATH/.claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+    echo "linked $HOME/.claude/CLAUDE.md -> $DOTFILES_PATH/.claude/CLAUDE.md"
+
+    # merge required permissions into ~/.claude/settings.json
+    _merge_claude_settings
+
+    # copy every hook that gives a non-login session (desktop app, sshd, IDE) the
+    # env and tooling a login shell would have set up. Drop a new .sh in
+    # $DOTFILES_PATH/.claude/hooks and register it in CLAUDE_SETTINGS_ADDITIONS;
+    # nothing here needs to change.
+    mkdir -p "$HOME/.claude/hooks"
+    for hook in "$DOTFILES_PATH"/.claude/hooks/*.sh; do
+        name=$(basename "$hook")
+        cp -f "$hook" "$HOME/.claude/hooks/$name"
+        chmod +x "$HOME/.claude/hooks/$name"
+        echo "copied $name to $HOME/.claude/hooks/"
+    done
+
+    # copy personal.py
+    cp -f $DOTFILES_PATH/personal.py $WEB/src/aplaceforrover/rover/settings/personal.py
+    echo "copied personal.py to $WEB/src/aplaceforrover/rover/settings/personal.py"
+}
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+#
+# WHAT WE ADD TO ~/.claude/settings.json
+#
+# Everything in this JSON blob gets deep-merged into the existing settings by
+# _merge_claude_settings below. Dicts merge key-by-key, lists append only the
+# entries that aren't already there, so running personalize twice is a no-op.
+#
+# Add new settings HERE, not in the merge function.
+#
+read -r -d '' CLAUDE_SETTINGS_ADDITIONS <<'JSONEOF'
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash -lc:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/codespace-env.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/python-format.sh",
+            "statusMessage": "Formatting Python with ruff..."
+          }
+        ]
+      }
+    ]
+  }
+}
+JSONEOF
+#
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+
+function _merge_claude_settings {
+    local settings="$HOME/.claude/settings.json"
+
+    mkdir -p "$HOME/.claude"
+    [ -f "$settings" ] || echo '{}' > "$settings"
+
+    python3 - "$settings" "$CLAUDE_SETTINGS_ADDITIONS" <<'PYEOF'
+import json, sys
+
+path, additions = sys.argv[1], json.loads(sys.argv[2])
+changes = []
+
+
+def merge(current, wanted, trail=""):
+    """Deep-merge `wanted` into `current`, recording what changed."""
+    for key, value in wanted.items():
+        where = "%s.%s" % (trail, key) if trail else key
+
+        if isinstance(value, dict):
+            existing = current.get(key)
+            if not isinstance(existing, dict):
+                existing = current[key] = {}
+            merge(existing, value, where)
+        elif isinstance(value, list):
+            existing = current.get(key)
+            if not isinstance(existing, list):
+                existing = current[key] = []
+            for item in value:
+                if item not in existing:
+                    existing.append(item)
+                    changes.append(where)
+        elif current.get(key) != value:
+            current[key] = value
+            changes.append(where)
+
+
+try:
+    with open(path) as f:
+        data = json.load(f)
+except (ValueError, OSError):
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+merge(data, additions)
+
+if changes:
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+    print("updated %s (%s)" % (path, ", ".join(sorted(set(changes)))))
+else:
+    print("%s already up to date" % path)
+PYEOF
+}
+
+function dotfiles {
+    cd "$DOTFILES_PATH" || return 1
+
+    if [ -n "$(git status --porcelain)" ]; then
+        cat <<'EOF'
+  _        ____    ____      _    _       ____ _   _    _    _   _  ____ _____ ____
+ | |      / __ \  / ___|    / \  | |     / ___| | | |  / \  | \ | |/ ___| ____/ ___|
+ | |     | |  | | | |      / _ \ | |    | |   | |_| | / _ \ |  \| | |  _|  _| \___ \
+ | |___  | |__| | | |___  / ___ \| |___ | |___|  _  |/ ___ \| |\  | |_| | |___ ___) |
+ |_____|  \____/   \____|/_/   \_\_____| \____|_| |_/_/   \_\_| \_|\____|_____|____/
+
+      local changes detected, sync not possible
+EOF
+        return 1
+    fi
+
+    git pull
+}
