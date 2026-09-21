@@ -101,3 +101,30 @@ When you offer to run unit tests, ALWAYS offer to run only changed tests files, 
 - Always assume the user will click "copy" and then paste the whole shell plus block into a shell plus session
 - Never set up the shell plus blocks as "one-liners" using m shell_plus -c "'from stays.event_notifications ...'"
 - You don't ever need to import models classes, all the models in the django app are automatically imported in our shell_plus sessions
+
+### Running shell_plus Yourself (Agents)
+
+The rules above are about blocks I copy-paste. When *you* need to run shell_plus
+non-interactively — DB verification during a test case, answering a question
+about real data — follow these instead:
+
+- **Never** use `m shell_plus -c "<multi-line python>"`. Passing multi-line
+  Python through `bash -lc` does not parse reliably.
+- **Never** create the script with the Write/Edit tools. The `python-format.sh`
+  PostToolUse hook runs ruff on every `.py` file you write, and a reformat that
+  splits a compact script across more lines breaks it when piped in: the
+  interactive console treats each physical line as its own statement, so you get
+  `IndentationError`/`SyntaxError`.
+- Write the script with a bash heredoc into the scratchpad directory, then pipe
+  it in:
+
+```bash
+cat > "/path/to/scratchpad/verify.py" <<'PY'
+b = Booking.objects.get(pk=123)
+print(b.status, b.start_date)
+PY
+m shell_plus --plain < "/path/to/scratchpad/verify.py"
+```
+
+- Because the console parses line by line, keep top-level statements flat and do
+  not put blank lines inside an indented block — a blank line ends the block.
