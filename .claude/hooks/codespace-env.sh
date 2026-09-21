@@ -21,6 +21,18 @@ if [ -r "$secrets" ]; then
     done < "$secrets" >> "$CLAUDE_ENV_FILE"
 fi
 
+# --- Gemfury pip index, which .codespacesrc builds for login shells -----------
+# Read the token back out of .env-secrets rather than $GEMFURY_API_TOKEN: this
+# script is spawned by the harness, so its own environment is not guaranteed to
+# carry the Codespace secrets even though the loop above just exported them into
+# $CLAUDE_ENV_FILE for the Bash tool.
+if [ -r "$secrets" ]; then
+    fury=$(sed -n 's/^GEMFURY_API_TOKEN=//p' "$secrets" | head -1 | base64 -d 2>/dev/null)
+    [ -n "$fury" ] &&
+        printf 'export GEMFURY_READ_URL=%q\n' \
+            "https://repo.fury.io/${fury}/roverdotcom/" >> "$CLAUDE_ENV_FILE"
+fi
+
 # --- User-installed tools (claude, uv, ...) that a login shell puts on PATH ---
 [ -d "$HOME/.local/bin" ] &&
     printf 'export PATH=%q:"$PATH"\n' "$HOME/.local/bin" >> "$CLAUDE_ENV_FILE"

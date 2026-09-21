@@ -4,7 +4,10 @@ export PATH="$HOME/.local/bin:$PATH"
 
 alias grep="grep --color=auto"
 
-export GEMFURY_API_TOKEN="GsM1tgeGkNyFHkFYd5qc"
+# GEMFURY_API_TOKEN comes from Codespaces secrets (GitHub -> Settings ->
+# Codespaces -> Secrets), injected into the environment before this file runs.
+# Do not inline the value: this repo is public. Non-login Claude shells get the
+# token and the URL below from .claude/hooks/codespace-env.sh instead.
 export GEMFURY_READ_URL="https://repo.fury.io/${GEMFURY_API_TOKEN}/roverdotcom/"
 
 cd /workspaces/web
@@ -31,7 +34,6 @@ export DC_PARAMS="--profile stripe"
 
 export PRE_COMMIT_ENABLED=true
 
-export ANTHROPIC_AUTH_TOKEN="sk-MSC5sLKQeQlfAHEKZ5O-Dw"
 
 function dcps {
     dc ps  --format='table {{ .Name }}\t{{ .Status }}'
