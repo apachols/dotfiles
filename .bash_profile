@@ -3,17 +3,17 @@
 
   # locally
   export WEB="$HOME/projects/web"
-  DOTFILES_PATH="$HOME/git/dotfiles"
+  export DOTFILES_PATH="$HOME/git/dotfiles"
 
   # roverspaces (Coder) - $USER is also 'codespace' here, so check this FIRST
   if [ -n "${ROVERSPACE_NAME:-}" ] || [ -n "${CODER:-}" ]; then
     ROVERSPACE=1
-    DOTFILES_PATH="$HOME/.config/coderv2/dotfiles"
-    WEB="/workspaces/web"
+    export DOTFILES_PATH="$HOME/.config/coderv2/dotfiles"
+    export WEB="/workspaces/web"
   # github codespaces
   elif [ -n "${CODESPACES:-}" ]; then
-    DOTFILES_PATH="/workspaces/.codespaces/.persistedshare/dotfiles"
-    WEB="/workspaces/web"
+    export DOTFILES_PATH="/workspaces/.codespaces/.persistedshare/dotfiles"
+    export WEB="/workspaces/web"
   fi
 
   # Next, load the dotfiles appropriate to environment
