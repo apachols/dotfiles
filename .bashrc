@@ -27,19 +27,15 @@ alias yargs='xargs -n 1'
 
 alias sonnet="claude --model sonnet"
 
-export LOG_CLEANER='grep -vi synth | grep -vi health | grep -vi tasks | grep -vi task | grep -vi geo_ip_location'
+export LOG_CLEANER='grep -vi synth | grep -vi health | grep -vi task | grep -vi geo_ip_location'
 
 alias flogs="dc logs --tail 345 web -f | $LOG_CLEANER"
 alias slogs="dc logs --tail 345 web | $LOG_CLEANER"
 alias blogs="dc logs --tail 34567 web | $LOG_CLEANER"
 alias clogs="dc logs --tail 34567 web | grep -i task"
 
-alias hello="echo 'hi'"
-
 export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 export CLAUDE_CODE_DISABLE_ARTIFACT=0
-export EXPERIMENTAL_TSGO=true
-
 
 #
 # FUNCTION TOWN
@@ -76,6 +72,7 @@ function goto() {
 }
 
 function rgp() {
+  # quick find for non-test python files
   rg "$1" ./src/aplaceforrover --type py -g "!*test*"
 }
 
