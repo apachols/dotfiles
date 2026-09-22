@@ -33,14 +33,27 @@ failed=()
 ok()   { passed+=("$1"); }
 bad()  { failed+=("$1 — $2"); }
 
-# In a hook, what matters is what the Bash tool will see, which is the env file
-# the SessionStart hook just wrote - not this process's own environment.
+# Which platform provisioned this machine. Codespaces sets CODESPACES=true in
+# the container env; Coder (roverspaces) sets CODER=true via $BASH_ENV, which
+# every bash process sources, hooks included.
+platform=laptop
+if [ "${CODESPACES:-}" = true ]; then
+    platform=codespaces
+elif [ "${CODER:-}" = true ] || [ -n "${ROVERSPACE_NAME:-}" ]; then
+    platform=roverspaces
+fi
+
+# In a hook, what matters is what the Bash tool will see. In Codespaces that is
+# the env file the SessionStart hook just wrote; in roverspaces most of it comes
+# from $BASH_ENV instead, which this process has already sourced, so fall back
+# to our own environment when the file has no entry.
 env_value() {
+    local value=""
     if [ -n "${CLAUDE_ENV_FILE:-}" ] && [ -r "$CLAUDE_ENV_FILE" ]; then
-        sed -n "s/^export $1=//p" "$CLAUDE_ENV_FILE" | tail -1 | tr -d "\"'"
-    else
-        printf %s "${!1:-}"
+        value=$(sed -n "s/^export $1=//p" "$CLAUDE_ENV_FILE" | tail -1 | tr -d "\"'")
     fi
+    [ -n "$value" ] || value="${!1:-}"
+    printf %s "$value"
 }
 
 ###
@@ -100,11 +113,25 @@ else
     bad "PRE_COMMIT_ENABLED" "not true, so git commit skips every pre-commit hook without a word"
 fi
 
-for var in CODESPACE_NAME GITHUB_TOKEN; do
-    if [ -n "$(env_value $var)" ]; then
+if [ -n "$(env_value GITHUB_TOKEN)" ]; then
+    ok "GITHUB_TOKEN exported"
+else
+    bad "GITHUB_TOKEN" "not exported; gh and anything that shells out to it fail without it"
+fi
+
+# The machine's identity, as the repo reads it: settings/common.py takes
+# MACHINE_NAME first and CODESPACE_NAME as the fallback, and fixture tracking
+# keys off CODESPACE_NAME alone. Which one must be present depends on the platform.
+case "$platform" in
+    codespaces)  identity_vars=(CODESPACE_NAME) ;;
+    roverspaces) identity_vars=(ROVERSPACE_NAME MACHINE_NAME) ;;
+    *)           identity_vars=() ;;
+esac
+for var in "${identity_vars[@]}"; do
+    if [ -n "$(env_value "$var")" ]; then
         ok "$var exported"
     else
-        bad "$var" "not exported; fixture Statsig gates and gh both misbehave without it"
+        bad "$var" "not exported on $platform; fixture tracking and machine-name settings misbehave without it"
     fi
 done
 
@@ -139,8 +166,8 @@ names=""
 [ ${#failed[@]} -gt 0 ] && names=$(printf ' [%s]' "$(printf '%s, ' "${failed[@]%% — *}" | sed 's/, $//')")
 
 mkdir -p "$(dirname "$log")"
-printf '%s entrypoint=%s mode=%s repo=%s status=%s failed=%d%s\n' \
-    "$(date -u +%FT%TZ)" "${CLAUDE_CODE_ENTRYPOINT:-shell}" "$mode" "${repo:-none}" \
+printf '%s entrypoint=%s platform=%s mode=%s repo=%s status=%s failed=%d%s\n' \
+    "$(date -u +%FT%TZ)" "${CLAUDE_CODE_ENTRYPOINT:-shell}" "$platform" "$mode" "${repo:-none}" \
     "$status" "${#failed[@]}" "$names" \
     >> "$log" 2>/dev/null
 
