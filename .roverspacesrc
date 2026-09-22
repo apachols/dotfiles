@@ -34,23 +34,29 @@ function dcps {
 }
 
 function personalize {
+    # $CLAUDE_CONFIG_DIR is the real "user config" root when set (roverspaces
+    # redirects it away from ~/.claude via /etc/profile.d/roverspace-claude.sh).
+    local claude_home="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+
     # symlink any new skill dirs from dotfiles to ~/.claude/skills
-    _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$HOME/.claude/skills"
+    _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$claude_home/skills"
 
     # ensure remote-sync target dir exists for mutagen (see remotesync in .roverrc)
     mkdir -p "$HOME/obsidian/remote-sync"
 
     # symlink global CLAUDE.md from dotfiles
-    ln -sfn "$DOTFILES_PATH/.claude/CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-    echo "linked $HOME/.claude/CLAUDE.md -> $DOTFILES_PATH/.claude/CLAUDE.md"
+    ln -sfn "$DOTFILES_PATH/.claude/CLAUDE.md" "$claude_home/CLAUDE.md"
+    echo "linked $claude_home/CLAUDE.md -> $DOTFILES_PATH/.claude/CLAUDE.md"
 
-    # merge required permissions into ~/.claude/settings.json
+    # merge required permissions into $claude_home/settings.json
     _merge_claude_settings
 
     # copy every hook that gives a non-login session (desktop app, sshd, IDE) the
     # env and tooling a login shell would have set up. Drop a new .sh in
     # $DOTFILES_PATH/.claude/hooks and register it in CLAUDE_SETTINGS_ADDITIONS;
     # nothing here needs to change.
+    # (hooks stay under $HOME - settings.json's "command" references them by
+    # $HOME, which resolves the same regardless of $CLAUDE_CONFIG_DIR)
     mkdir -p "$HOME/.claude/hooks"
     for hook in "$DOTFILES_PATH"/.claude/hooks/*.sh; do
         name=$(basename "$hook")
@@ -111,9 +117,9 @@ JSONEOF
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 function _merge_claude_settings {
-    local settings="$HOME/.claude/settings.json"
+    local settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
 
-    mkdir -p "$HOME/.claude"
+    mkdir -p "$(dirname "$settings")"
     [ -f "$settings" ] || echo '{}' > "$settings"
 
     python3 - "$settings" "$CLAUDE_SETTINGS_ADDITIONS" <<'PYEOF'
