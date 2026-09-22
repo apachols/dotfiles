@@ -1,3 +1,24 @@
+## Secrets — check before every commit
+
+**This repo is public.** Before staging or committing anything here, re-read
+your own diff and confirm it contains no tokens, API keys, passwords,
+connection strings, or private URLs — including ones you only moved or
+reformatted.
+
+Secrets belong in `.secrets`, never in a tracked file. `.secrets` is gitignored
+and sourced last by `.bash_profile`, so anything derived from a secret (a URL
+with a token in it, for example) must also be derived in `.secrets` — a
+derivation in `.bashrc` or an rc file runs before the tokens exist and silently
+builds an empty value.
+
+If a value must be referenced from a tracked file, reference the variable
+(`$GEMFURY_API_TOKEN`), never the value. In Codespaces and roverspaces, real
+values come from platform secrets and reach non-login Claude sessions via
+`.claude/hooks/codespace-env.sh`.
+
+If you find a secret already committed, stop and tell me — it needs rotating,
+not just deleting.
+
 ## Rules for Codespaces
 
 You are running in a codespace, and once, at the start of each session, run this command:
