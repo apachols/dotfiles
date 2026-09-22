@@ -19,21 +19,12 @@ values come from platform secrets and reach non-login Claude sessions via
 If you find a secret already committed, stop and tell me — it needs rotating,
 not just deleting.
 
-## Rules for Codespaces
-
-You are running in a codespace, and once, at the start of each session, run this command:
-
-```
-echo "CODESPACE_NAME=$CODESPACE_NAME GITHUB_TOKEN=${GITHUB_TOKEN:+set}" && gh auth status
-```
-
-If these variables are undefined, or gh auth status fails, STOP and notify the user.
-If everything is defined and we are authed for `gh`, continue, no output necessary.
+## Rules for all Cloud Dev Envs (Codespaces && Roverspaces)
 
 My dotfiles live at `/workspaces/.codespaces/.persistedshare/dotfiles` in a
 codespace (`$DOTFILES_PATH`, aliased to `dotfiles`).
 
-**In a codespace, never edit anything under `$DOTFILES_PATH` yourself.** All
+**In a Cloud Dev Env, never edit anything under `$DOTFILES_PATH` yourself.** All
 dotfiles edits are made from my laptop and pushed. Show me the change as a
 snippet or a diff in chat and let me apply it there. The reason: my update
 command is `dotfiles && personalize && web`, where `dotfiles` does a `git pull`
@@ -51,6 +42,21 @@ Never edit the installed copies under `~/.claude/` to "fix" something. Hooks are
 copies and `settings.json` is a merge, so edits there are invisible to version
 control and get overwritten on my next `personalize`.
 
+## Rules for Roverspaces
+
+Nothing specific to Roverspaces yet, but keep this block, to distinguish between RS/CS.
+
+## Rules for Codespaces
+
+IF you are running in a codespace, and once, at the start of each session, run this command:
+
+```
+echo "CODESPACE_NAME=$CODESPACE_NAME GITHUB_TOKEN=${GITHUB_TOKEN:+set}" && gh auth status
+```
+
+If these variables are undefined, or gh auth status fails, STOP and notify the user.
+If everything is defined and we are authed for `gh`, continue, no output necessary.
+
 ### Where a change belongs
 
 Your Bash tool shells are non-interactive and non-login, so they do **not**
@@ -61,11 +67,12 @@ snapshot in `~/.claude/shell-snapshots/`. Every other `export` is dropped.
 One rc file per environment, all sourced from `.bash_profile`:
 
 ```
-| Environment                                  | rc file          |
-| -------------------------------------------- | ---------------- |
-| Work laptop (`adam.pacholski`)               | `.roverrc`       |
-| Home laptop (`adamp`)                        | `.homerc`        |
-| Codespace, me sshed in (`vscode`/`codespace`)| `.codespacesrc`  |
+| Environment                                   | rc file           |
+| --------------------------------------------- | ----------------  |
+| Work laptop (`adam.pacholski`)                | `.roverrc`        |
+| Home laptop (`adamp`)                         | `.homerc`         |
+| Codespace, me sshed in (`vscode`/`codespace`) | `.codespacesrc`   |
+| Roverspace, me sshed in (`vscode`/`codespace`)| `.roverspacesrc`  |
 | Non-interactive Claude session (desktop app, sshd, IDE) | `.claude/hooks/codespace-env.sh` |
 ```
 
@@ -125,7 +132,7 @@ When you offer to run unit tests, ALWAYS offer to run only changed tests files, 
 
 ### Running shell_plus Yourself (Agents)
 
-The rules above are about blocks I copy-paste. When *you* need to run shell_plus
+The rules above are about blocks I copy-paste. When _you_ need to run shell_plus
 non-interactively — DB verification during a test case, answering a question
 about real data — follow these instead:
 
