@@ -96,22 +96,22 @@ function rsp()
 #   - mutagen's fallback self-install cannot work at all: it unpacks into /tmp
 #     (tmpfs) and renames into $HOME (overlayfs), which is a cross-device link.
 # So stage the agent ourselves and never let the fallback run.
+#
+# Safe to re-run: the scp is skipped when the right version is already staged,
+# but the leftover sweep and the symlink always run - the symlink is the part a
+# $WEB rebuild destroys. Sets _ROVERSPACE_REMOTE_HOME for the caller.
 function _roverspace_stage_mutagen_agent()
 {
   local ssh_host="$1"
   local version bundle tmpdir remote_home
   version=$(mutagen version) || return 1
-  bundle="$(brew --prefix mutagen)/libexec/mutagen-agents.tar.gz"
-  if [ ! -f "$bundle" ]; then
-    echo "roverspacesync: no agent bundle at $bundle"
-    return 1
-  fi
 
   remote_home=$(ssh "$ssh_host" 'echo $HOME')
   if [ -z "$remote_home" ]; then
     echo "roverspacesync: could not read \$HOME on $ssh_host"
     return 1
   fi
+  _ROVERSPACE_REMOTE_HOME="$remote_home"
 
   # sweep leftovers from any earlier fallback self-install: mutagen scp's the
   # agent to .mutagen-agent<uuid> in the ssh landing dir, then fails the
@@ -119,20 +119,33 @@ function _roverspace_stage_mutagen_agent()
   # $WEB, so every one of those shows up as untracked in the web repo.
   ssh "$ssh_host" 'rm -f ./.mutagen-agent*'
 
-  tmpdir=$(mktemp -d) || return 1
-  tar xzf "$bundle" -C "$tmpdir" linux_amd64 || { rm -rf "$tmpdir"; return 1; }
+  local agent="$remote_home/.mutagen/agents/$version/mutagen-agent"
+  if ssh "$ssh_host" "[ -x '$agent' ]"; then
+    echo "roverspacesync: agent $version already staged on $ssh_host"
+  else
+    bundle="$(brew --prefix mutagen)/libexec/mutagen-agents.tar.gz"
+    if [ ! -f "$bundle" ]; then
+      echo "roverspacesync: no agent bundle at $bundle"
+      return 1
+    fi
 
-  ssh "$ssh_host" "mkdir -p '$remote_home/.mutagen/agents/$version'" &&
-    scp -q "$tmpdir/linux_amd64" \
-      "$ssh_host:$remote_home/.mutagen/agents/$version/mutagen-agent" ||
-    { rm -rf "$tmpdir"; return 1; }
-  rm -rf "$tmpdir"
+    tmpdir=$(mktemp -d) || return 1
+    tar xzf "$bundle" -C "$tmpdir" linux_amd64 || { rm -rf "$tmpdir"; return 1; }
 
-  # chmod, then link $HOME/.mutagen onto the dir ssh sessions actually land in
-  ssh "$ssh_host" "chmod +x '$remote_home/.mutagen/agents/$version/mutagen-agent' &&
-    mkdir -p '$remote_home/mutagen' &&
-    [ \"\$PWD\" = '$remote_home' ] ||
-      ln -sfn '$remote_home/.mutagen' \"\$PWD/.mutagen\""
+    ssh "$ssh_host" "mkdir -p '$remote_home/.mutagen/agents/$version'" &&
+      scp -q "$tmpdir/linux_amd64" "$ssh_host:$agent" ||
+      { rm -rf "$tmpdir"; return 1; }
+    rm -rf "$tmpdir"
+
+    ssh "$ssh_host" "chmod +x '$agent'" || return 1
+  fi
+
+  # link $HOME/.mutagen onto the dir ssh sessions actually land in, so the
+  # relative agent dial resolves. Rebuilt every run - this is what goes missing.
+  ssh "$ssh_host" "mkdir -p '$remote_home/mutagen'
+    if [ \"\$PWD\" != '$remote_home' ]; then
+      ln -sfn '$remote_home/.mutagen' \"\$PWD/.mutagen\"
+    fi"
 }
 
 function roverspacesync()
@@ -141,24 +154,28 @@ function roverspacesync()
   local local_dir="$HOME/mutagen"
   local ssh_host
 
-  if mutagen sync list "$session_name" >/dev/null 2>&1; then
-    echo "roverspacesync: resuming session $session_name"
-    mutagen sync resume "$session_name"
-    return
-  fi
-
   ssh_host=$(_roverspace_host "$1") || return 1
 
   mkdir -p "$local_dir"
 
+  # Stage before resuming, not only before creating. A $WEB rebuild (fresh
+  # clone, workspace rebuild, git clean) drops the .mutagen symlink; mutagen
+  # then falls back to the self-install that cannot work here, and a bare
+  # `resume` loops on "invalid cross-device link" forever.
   echo "roverspacesync: staging mutagen agent on $ssh_host"
   _roverspace_stage_mutagen_agent "$ssh_host" || {
     echo "roverspacesync: agent staging failed"
     return 1
   }
 
+  if mutagen sync list "$session_name" >/dev/null 2>&1; then
+    echo "roverspacesync: resuming session $session_name"
+    mutagen sync resume "$session_name"
+    return
+  fi
+
   local remote_dir
-  remote_dir="$(ssh "$ssh_host" 'echo $HOME')/mutagen"
+  remote_dir="$_ROVERSPACE_REMOTE_HOME/mutagen"
 
   echo "roverspacesync: creating session $session_name ($local_dir <-> $ssh_host:$remote_dir)"
   mutagen sync create "$local_dir" "$ssh_host:$remote_dir" --name="$session_name"
