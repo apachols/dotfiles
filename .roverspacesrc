@@ -42,6 +42,9 @@ function personalize {
     # ensure remote-sync target dir exists for mutagen (see remotesync in .roverrc)
     mkdir -p "$HOME/obsidian/remote-sync"
 
+    # ensure mutagen target dir exists (see roverspacesync in .roverrc)
+    mkdir -p "$HOME/mutagen"
+
     # symlink global CLAUDE.md from dotfiles
     ln -sfn "$DOTFILES_PATH/.claude/CLAUDE.md" "$claude_home/CLAUDE.md"
     echo "linked $claude_home/CLAUDE.md -> $DOTFILES_PATH/.claude/CLAUDE.md"

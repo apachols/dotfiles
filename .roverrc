@@ -51,3 +51,79 @@ function remotesync()
   echo "remotesync: creating session $session_name ($local_dir <-> $ssh_host:/home/codespace/obsidian/remote-sync)"
   mutagen sync create "$local_dir" "$ssh_host:/home/codespace/obsidian/remote-sync" --name="$session_name"
 }
+
+# current roverspace; override per-invocation with `roverspacesync <host>`
+export ROVERSPACE_SSH_HOST="devcontainer.roverspace-test-dotfiles-hookup.adampacholski.coder"
+
+# Coder starts ssh/scp sessions in /workspaces/web rather than $HOME, so every
+# remote path here is absolute. Two consequences worth remembering:
+#   - mutagen dials its agent by the *relative* path .mutagen/agents/<ver>/
+#     mutagen-agent, so it misses an agent that only exists under $HOME; the
+#     symlink below puts it back on that relative path.
+#   - mutagen's fallback self-install cannot work at all: it unpacks into /tmp
+#     (tmpfs) and renames into $HOME (overlayfs), which is a cross-device link.
+# So stage the agent ourselves and never let the fallback run.
+function _roverspace_stage_mutagen_agent()
+{
+  local ssh_host="$1"
+  local version bundle tmpdir remote_home
+  version=$(mutagen version) || return 1
+  bundle="$(brew --prefix mutagen)/libexec/mutagen-agents.tar.gz"
+  if [ ! -f "$bundle" ]; then
+    echo "roverspacesync: no agent bundle at $bundle"
+    return 1
+  fi
+
+  remote_home=$(ssh "$ssh_host" 'echo $HOME')
+  if [ -z "$remote_home" ]; then
+    echo "roverspacesync: could not read \$HOME on $ssh_host"
+    return 1
+  fi
+
+  tmpdir=$(mktemp -d) || return 1
+  tar xzf "$bundle" -C "$tmpdir" linux_amd64 || { rm -rf "$tmpdir"; return 1; }
+
+  ssh "$ssh_host" "mkdir -p '$remote_home/.mutagen/agents/$version'" &&
+    scp -q "$tmpdir/linux_amd64" \
+      "$ssh_host:$remote_home/.mutagen/agents/$version/mutagen-agent" ||
+    { rm -rf "$tmpdir"; return 1; }
+  rm -rf "$tmpdir"
+
+  # chmod, then link $HOME/.mutagen onto the dir ssh sessions actually land in
+  ssh "$ssh_host" "chmod +x '$remote_home/.mutagen/agents/$version/mutagen-agent' &&
+    mkdir -p '$remote_home/mutagen' &&
+    [ \"\$PWD\" = '$remote_home' ] ||
+      ln -sfn '$remote_home/.mutagen' \"\$PWD/.mutagen\""
+}
+
+function roverspacesync()
+{
+  local session_name="roverspace-mutagen"
+  local local_dir="$HOME/mutagen"
+  local ssh_host="${1:-$ROVERSPACE_SSH_HOST}"
+
+  if mutagen sync list "$session_name" >/dev/null 2>&1; then
+    echo "roverspacesync: resuming session $session_name"
+    mutagen sync resume "$session_name"
+    return
+  fi
+
+  if [ -z "$ssh_host" ]; then
+    echo "roverspacesync: no host; pass one or set ROVERSPACE_SSH_HOST"
+    return 1
+  fi
+
+  mkdir -p "$local_dir"
+
+  echo "roverspacesync: staging mutagen agent on $ssh_host"
+  _roverspace_stage_mutagen_agent "$ssh_host" || {
+    echo "roverspacesync: agent staging failed"
+    return 1
+  }
+
+  local remote_dir
+  remote_dir="$(ssh "$ssh_host" 'echo $HOME')/mutagen"
+
+  echo "roverspacesync: creating session $session_name ($local_dir <-> $ssh_host:$remote_dir)"
+  mutagen sync create "$local_dir" "$ssh_host:$remote_dir" --name="$session_name"
+}
