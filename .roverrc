@@ -52,8 +52,41 @@ function remotesync()
   mutagen sync create "$local_dir" "$ssh_host:/home/codespace/obsidian/remote-sync" --name="$session_name"
 }
 
-# current roverspace; override per-invocation with `roverspacesync <host>`
-export ROVERSPACE_SSH_HOST="devcontainer.roverspace-test-dotfiles-hookup.adampacholski.coder"
+# Which roverspace `rsp` and `roverspacesync` talk to. ROVERSPACE_TARGET (the
+# short workspace name) and ROVERSPACE_USER live in .secrets, which is sourced
+# after this file - fine, because both are read when the function runs, not now.
+# Switching roverspaces means editing one line of .secrets.
+# NB: do not name the var ROVERSPACE_NAME - .bash_profile treats that as "we are
+# running inside a roverspace" and would repoint $DOTFILES_PATH and $WEB.
+function _roverspace_host()
+{
+  local name="${1:-$ROVERSPACE_TARGET}"
+
+  if [ -z "$name" ]; then
+    echo "roverspace: no target; pass a name or set ROVERSPACE_TARGET in .secrets" >&2
+    return 1
+  fi
+
+  # accept an already-qualified ssh host as-is
+  case "$name" in
+    devcontainer.*|*.coder) echo "$name"; return 0 ;;
+  esac
+
+  if [ -z "${ROVERSPACE_USER:-}" ]; then
+    echo "roverspace: set ROVERSPACE_USER in .secrets to qualify '$name'" >&2
+    return 1
+  fi
+
+  echo "devcontainer.$name.$ROVERSPACE_USER.coder"
+}
+
+# roverspace counterpart to `cs`. Needs the coder VPN up.
+function rsp()
+{
+  local ssh_host
+  ssh_host=$(_roverspace_host "$1") || return 1
+  ssh -A "$ssh_host"
+}
 
 # Coder starts ssh/scp sessions in /workspaces/web rather than $HOME, so every
 # remote path here is absolute. Two consequences worth remembering:
@@ -100,7 +133,7 @@ function roverspacesync()
 {
   local session_name="roverspace-mutagen"
   local local_dir="$HOME/mutagen"
-  local ssh_host="${1:-$ROVERSPACE_SSH_HOST}"
+  local ssh_host
 
   if mutagen sync list "$session_name" >/dev/null 2>&1; then
     echo "roverspacesync: resuming session $session_name"
@@ -108,10 +141,7 @@ function roverspacesync()
     return
   fi
 
-  if [ -z "$ssh_host" ]; then
-    echo "roverspacesync: no host; pass one or set ROVERSPACE_SSH_HOST"
-    return 1
-  fi
+  ssh_host=$(_roverspace_host "$1") || return 1
 
   mkdir -p "$local_dir"
 
