@@ -180,3 +180,16 @@ function roverspacesync()
   echo "roverspacesync: creating session $session_name ($local_dir <-> $ssh_host:$remote_dir)"
   mutagen sync create "$local_dir" "$ssh_host:$remote_dir" --name="$session_name"
 }
+
+# Sync ~/mutagen with the roverspace in both directions: the newer copy of a
+# file wins and nothing is deleted. Remote paths must be absolute because Coder
+# starts ssh sessions in /workspaces/web.
+function drop()
+{
+  local ssh_host remote_home
+  ssh_host=$(_roverspace_host "$1") || return 1
+  remote_home=$(ssh "$ssh_host" 'echo $HOME') || return 1
+  local opts=(-au --exclude='.obsidian/workspace*.json' --exclude=.DS_Store)
+  rsync "${opts[@]}" "$ssh_host:$remote_home/mutagen/" "$HOME/mutagen/" &&
+    rsync "${opts[@]}" "$HOME/mutagen/" "$ssh_host:$remote_home/mutagen/"
+}
