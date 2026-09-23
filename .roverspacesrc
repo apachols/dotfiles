@@ -45,6 +45,22 @@ function personalize {
     # ensure mutagen target dir exists (see roverspacesync in .roverrc)
     mkdir -p "$HOME/mutagen"
 
+    # mutagen dials its agent by a path relative to the ssh landing dir, which
+    # Coder sets to $WEB - so the deliberate .mutagen symlink (and any
+    # .mutagen-agent<uuid> leftovers) land inside the web repo and show up as
+    # untracked. Ignore them per-clone; web's tracked .gitignore is shared and
+    # this is purely a local-setup artifact.
+    local web_gitdir pat
+    if web_gitdir=$(git -C "$WEB" rev-parse --git-common-dir 2>/dev/null); then
+        case "$web_gitdir" in /*) ;; *) web_gitdir="$WEB/$web_gitdir" ;; esac
+        mkdir -p "$web_gitdir/info"
+        for pat in '.mutagen' '.mutagen-agent*'; do
+            grep -qxF "$pat" "$web_gitdir/info/exclude" 2>/dev/null ||
+                echo "$pat" >> "$web_gitdir/info/exclude"
+        done
+        echo "ignored mutagen artifacts in $web_gitdir/info/exclude"
+    fi
+
     # symlink global CLAUDE.md from dotfiles
     ln -sfn "$DOTFILES_PATH/.claude/CLAUDE.md" "$claude_home/CLAUDE.md"
     echo "linked $claude_home/CLAUDE.md -> $DOTFILES_PATH/.claude/CLAUDE.md"

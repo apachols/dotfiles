@@ -113,6 +113,12 @@ function _roverspace_stage_mutagen_agent()
     return 1
   fi
 
+  # sweep leftovers from any earlier fallback self-install: mutagen scp's the
+  # agent to .mutagen-agent<uuid> in the ssh landing dir, then fails the
+  # cross-device rename into $HOME and abandons the file. Coder lands us in
+  # $WEB, so every one of those shows up as untracked in the web repo.
+  ssh "$ssh_host" 'rm -f ./.mutagen-agent*'
+
   tmpdir=$(mktemp -d) || return 1
   tar xzf "$bundle" -C "$tmpdir" linux_amd64 || { rm -rf "$tmpdir"; return 1; }
 
