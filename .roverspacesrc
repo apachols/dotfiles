@@ -10,8 +10,6 @@ source profile
 
 source /workspaces/web/venv/bin/activate
 
-source /workspaces/web/profile
-
 source /workspaces/web/profile-codespaces
 
 alias sp='m shell_plus'
