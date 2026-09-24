@@ -202,7 +202,8 @@ Run-level status shown on the index is derived from the cases: any `fail` → FA
 
 The PR body's whole `## Test Case K` section, copied verbatim — heading, `### Test Conditions`,
 `### Test Execution`, `### Expected Result`, and the `<details>` manual-instructions block. No
-frontmatter, no edits, no summary. It pins what the PR asked for at the tested commit, so a later
+frontmatter, no summary, and no edits except rewriting link hosts to the resolved dev host
+(SKILL.md step 3). It pins what the PR asked for at the tested commit, so a later
 run can tell a real regression from a test case that was rewritten between runs.
 
 The renderer puts it in a collapsed `<details>` at the top of the case page and renders markdown

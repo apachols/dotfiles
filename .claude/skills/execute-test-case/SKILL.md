@@ -43,7 +43,47 @@ Never store state inside the skill directory — it is shared via git.
 4. Record `git rev-parse --short=12 HEAD` and the branch; confirm the checked-out branch is the PR
    branch. If not, stop and say so — do not test the wrong code.
 
-## 3. Create the run directory
+## 3. Resolve the dev host
+
+Do this before capturing the spec or opening a browser. The app host is not always
+`rover.local:8001`. A Roverspace sets `URI_AUTHORITY` (e.g.
+`devcontainer.<workspace>.<owner>.coder:8001`) in the `web` container, and URLs the app builds
+without a request (API `url` fields, `/api/v7/frontend/current-user/`) use that host. Browsing at
+`rover.local` then mixes two hosts on one page, and code that compares absolute URLs as strings
+breaks — e.g. owner-side pages decide the owner is the provider.
+
+```bash
+docker compose --project-directory /workspaces/web exec -T web printenv URI_AUTHORITY
+```
+
+- **Prints a value** — `HOST=<that value>`.
+- **Prints nothing, exit 1** (unset: Codespace, laptop) — `HOST=rover.local:8001`.
+- **Any other error** (no such service, container not running) — stop and tell the user; the
+  case cannot run against a dead app.
+
+Then:
+
+1. **Rewrite every link.** In the test case section, "Before testing", fixture entry points, and
+   any URL you build yourself, replace the `rover.local:8001` host with `HOST`. Keep scheme, path
+   and query. "Go to `http://rover.local:8001/become-a-sitter`" becomes "Go to
+   `http://devcontainer.<workspace>.<owner>.coder:8001/become-a-sitter`". Execute the rewritten
+   instruction, never the original.
+2. **Map the host for the browser** (only when `HOST` is not `rover.local:8001`). The Roverspace
+   has no DNS for that name, but nginx accepts it as the Host header, so point it at loopback.
+   Write a playwright-cli config in the session scratchpad:
+   ```json
+   {"browser": {"launchOptions": {"args": ["--host-resolver-rules=MAP <hostname> 127.0.0.1"]}}}
+   ```
+   (`<hostname>` without the port), and open every browser session with it:
+   ```bash
+   playwright-cli -s=<session> open --config=<file> http://<HOST>/
+   ```
+   Sanity-check first: `curl -sS -o /dev/null -w '%{http_code}\n' --resolve <HOST>:127.0.0.1 http://<HOST>/`
+   should print a 2xx/3xx.
+3. **Record it.** `HOST` goes in `run.json` `target` (`http://<HOST>`) and the Environment section
+   of each `result.md`, alongside the original host when it differs.
+
+## 4. Create the run directory
 
 ```bash
 uv run --script <skill>/scripts/testresults.py new-run --pr <N>
@@ -52,7 +92,7 @@ uv run --script <skill>/scripts/testresults.py new-run --pr <N>
 Prints `<DIR>/<YYYYMMDDTHHMMZ>-pr-<N>`. Every artifact for this run goes under it. One run dir per
 invocation, even when running several cases. Note the UTC start time for `run.json`.
 
-## 4. Execute each test case
+## 5. Execute each test case
 
 Before touching the browser, read the Rover site interaction guide in the `web` checkout:
 
@@ -70,9 +110,11 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
 1. `mkdir -p <run>/test-case-<K>/screenshots`.
 2. **Capture the spec.** Copy the PR body's whole `## Test Case N` section — heading, Test
    Conditions, Test Execution, Expected Result, and the `<details>` manual-instructions block —
-   verbatim into `<run>/test-case-<K>/test-case.md`. Do not summarize or reword it: this is the
-   record of what the PR asked for at this commit, so a later run can tell a real regression from
-   a rewritten test case. The case page renders it in a collapsed block at the top.
+   verbatim into `<run>/test-case-<K>/test-case.md`, with the step 3 host rewrite applied — the
+   saved instructions must carry the links you actually followed. Change nothing else: do not
+   summarize or reword it. This is the record of what the PR asked for at this commit, so a later
+   run can tell a real regression from a rewritten test case. The case page renders it in a
+   collapsed block at the top.
 3. **Preconditions.** Set feature flags / switches exactly as "Test Conditions" says. Record the
    as-found state so it can be restored. Screenshot each flag admin page.
 4. **Fixture.** Create the fixture template named in the PR with the specified parameters. Use the
@@ -95,7 +137,7 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
 
    Get the URL by navigating there, not by guessing a path: open the conversation in admin (search
    its OPK from the conversation admin changelist, or follow the link from the order) and copy the
-   address bar. Absolute URLs including the local host (`http://rover.local:8001/...`), so the
+   address bar. Absolute URLs including the step 3 host (`http://<HOST>/...`), so the
    link works from the results page.
 8. **Verdict.** `pass` only if every expected-result bullet matches exactly. Otherwise `fail`
    with the mismatch, or `blocked` if a precondition could not be established.
@@ -104,7 +146,7 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
     missing dev-env dependency, a service that had to be restarted, a fixture that 500s, a stale
     migration, a wrong or missing credential, a flaky selector, a PR-body link that 404s, a slug or
     URL in a skill doc that no longer matches the app, a workaround you had to invent — append an
-    entry to `<run>/issues.md` (see step 5). Log it even when you worked around it: the point is a
+    entry to `<run>/issues.md` (see step 6). Log it even when you worked around it: the point is a
     list the user can act on later. Do not let logging an issue change the verdict — a dev-env
     problem is `blocked`, not `fail`, only when it stopped the case from running.
 
@@ -113,11 +155,11 @@ Screenshot naming: `NN-kebab-slug.png`, zero-padded, in execution order
 Save them with `playwright-cli screenshot --path <run>/test-case-<K>/screenshots/NN-slug.png`
 (or the equivalent for the tool in use); crop to the element where a full page would bury it.
 
-## 5. Write the report files
+## 6. Write the report files
 
 Read `references/result-format.md` for the exact schemas and a worked example. In short:
 
-- `<run>/test-case-<K>/test-case.md` — the PR's `## Test Case N` section, verbatim (step 4.2).
+- `<run>/test-case-<K>/test-case.md` — the PR's `## Test Case N` section, verbatim apart from the step 3 host rewrite (step 5.2).
 - `<run>/test-case-<K>/result.md` — YAML frontmatter (`testCase`, `title`, `status`, `executedAt`,
   `executedBy`, `method`, `model`, `effort`, `tokenSpend`, `pr`, `branch`, `ticket`, `adminLinks`)
   then markdown: **Agent run** table (first section, right under the `**Result:**` line), Environment,
@@ -144,7 +186,7 @@ running total per case and say so. If a value genuinely is not available, write 
 never invent a number.
 - `<run>/README.md` — one-paragraph summary plus a Case / Title / Result table; say which of the
   PR's cases were **not** executed. Do not link `issues.md` by hand — the build links it.
-- `<run>/issues.md` — the friction log from step 4.10. Create it only if there was something to
+- `<run>/issues.md` — the friction log from step 5.10. Create it only if there was something to
   log; skip the file entirely on a clean run. Format: `# Issues hit during this run`, then one
   `## <short title>` per problem with these lines:
 
@@ -158,7 +200,7 @@ never invent a number.
   this file into `<run>/issues.html` and puts a banner linking to it at the top of the run page
   and every case page, so the headings are what the reader scans — make them specific.
 
-## 6. Build and hand off
+## 7. Build and hand off
 
 ```bash
 uv run --script <skill>/scripts/testresults.py build
@@ -198,7 +240,7 @@ execution needs in addition.
   echo $CODESPACE_NAME   # e.g. bookish-space-guide-4v94j4pjxv2q6gx
   ```
 
-Screenshot every flag page after the change, and record the as-found value so step 4.7 can
+Screenshot every flag page after the change, and record the as-found value so step 5.9 can
 restore it.
 
 ## Guardrails
