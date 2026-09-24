@@ -231,14 +231,53 @@ execution needs in addition.
 - **Gargoyle flags.** Go to `/admin/nexus/gargoyle`, search for the flag, and set it to
   **Global** (enabled) or **Disabled**. Consult the user before using **Selective** — its
   conditions are easy to get wrong and hard to notice.
-- **Statsig gates.** Go to the gate's page directly (e.g.
-  `/admin/statsig_gates/rollout_recurring_sales_tax_recoupment/`) or search the flag name in
-  `/admin/statsig_gates/`. For local, set **environment type** to `development` and set the **ID**
-  to the Codespace ID. The admin dropdown should offer that Codespace as its only option — if it
-  does not, get the value from the Codespace env var and tell the user the dropdown looked wrong:
+- **Statsig gates.** Local gate overrides are Statsig environment overrides keyed on the
+  app's `settings.MACHINE_NAME`. An override for any other ID does nothing for this app.
+
+  **1. Get the machine name** once per run, from the `web` container. That's where the settings
+  read it, and it mirrors their fallback: `MACHINE_NAME` first, then `CODESPACE_NAME`.
   ```bash
-  echo $CODESPACE_NAME   # e.g. bookish-space-guide-4v94j4pjxv2q6gx
+  docker compose --project-directory /workspaces/web exec -T web sh -c 'echo "${MACHINE_NAME:-$CODESPACE_NAME}"'
   ```
+  | Platform | Variable | Looks like |
+  |---|---|---|
+  | Roverspace | `MACHINE_NAME`, set by the Coder template | `<owner>-<workspace>` |
+  | Codespace | `CODESPACE_NAME` (no `MACHINE_NAME`) | `bookish-space-guide-4v94j4pjxv2q6gx` |
+
+  If it prints an empty line, stop and tell the user. With no machine name, every override
+  (including the ones fixtures create) matches nothing, and gate-dependent cases run with the gate
+  off. Record the name in the `result.md` Environment section.
+
+  **2. Read the as-found state.** Open `/admin/statsig_gates/<gate_name>/` (or search the name
+  in `/admin/statsig_gates/`). The **Gate Overrides** table lists ID / Status / Environment type /
+  Override type. Record the row for your machine name, or "no override for `<name>`" if there
+  isn't one. Screenshot it. Ignore rows for other machines, and never edit or remove them: they
+  belong to other developers' environments.
+
+  **3. Set the gate.** If the PR says a fixture turns the gate on, build the fixture first and then
+  re-read the table: fixtures have silently stopped doing this before. Only when the row is still
+  missing or wrong, click **Create New Override** (or **Edit** on your existing row), choose
+  **Environment**, and set Pass / Fail as "Test Conditions" says. The form fills the ID in from
+  `settings.MACHINE_NAME`. Before saving, confirm it matches step 1 exactly. If it doesn't, stop
+  and tell the user: the app and the admin disagree about which machine this is.
+
+  **4. Verify.** Reload the gate page and check the row: ID = your machine name, environment type
+  `development`, override type `environment_id`, status as intended. Screenshot it. The override
+  goes to the Statsig console, and the app's SDK picks it up on its next sync, not right away.
+  Before you start "Test Execution", ask the app what it sees (substitute the gate name):
+  ```bash
+  m shell_plus -c "'from systems.statsig import statsig; from systems.statsig.statsig_user import StatsigUserBuilder; print(\"GATE\", statsig.check_gate(StatsigUserBuilder().for_randomized().build(), \"GATE_NAME\"))'" 2>&1 | grep '^GATE'
+  ```
+  It prints `GATE True` or `GATE False`. `for_randomized()` is enough for a plain on/off gate: the
+  builder adds the environment's custom IDs itself, and the codebase's own killswitch checks do
+  the same (`contact_more_sitters/flags.py:31`). If it still shows the old value, wait and run it
+  again. Don't start the case until it matches. Record the output, and how long the sync took, in
+  the Flag state section. Run the same check in step 2 to record the effective as-found value
+  next to the table row.
+
+  **5. Restore** (step 5.9). Put your machine's row back exactly as found: remove an override you
+  added, or edit a pre-existing one back to its old status. Leave gates a fixture turned on as the
+  fixture set them, and say so in the notes. Screenshot the restored table.
 
 Screenshot every flag page after the change, and record the as-found value so step 5.9 can
 restore it.
