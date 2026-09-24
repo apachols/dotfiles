@@ -152,8 +152,9 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
 
 Screenshot naming: `NN-kebab-slug.png`, zero-padded, in execution order
 (`01-rollout-gate-on.png`, `04-price-ledger.png`). The gallery caption is derived from the slug.
-Save them with `playwright-cli screenshot --path <run>/test-case-<K>/screenshots/NN-slug.png`
-(or the equivalent for the tool in use); crop to the element where a full page would bury it.
+Save them with `playwright-cli screenshot --filename=<run>/test-case-<K>/screenshots/NN-slug.png`
+(add `--full-page` for the full-page shots; the flag is `--filename`, not `--path`). Crop to the
+element where a full page would bury it.
 
 ## 6. Write the report files
 
@@ -226,6 +227,32 @@ Report to the user:
 `rover-site-interaction`; that skill is the general guide, this section is what test-case
 execution needs in addition.
 
+### Log in as staff before any fixture
+
+Before building a fixture in any test case, sign in to `/admin/login/` as `staff@rover.com` in
+the same browser session. The password is in `rover-site-interaction`, so don't write it here or
+in the results. Fixture entry points that impersonate a user (`impersonate=true`,
+`view_as_requester`, etc.) go through admin `become_user`, which needs a staff session. On a
+fresh browser, the entry point instead redirects to
+`/admin/login/?next=/admin/people/person/become_user/<id>/...`. If you land on that redirect
+anyway (say, in a new browser session), it is expected, not an error: sign in as staff, and the
+entry point continues into the impersonation.
+
+### Impersonation
+
+Impersonation doesn't replace the staff session. The app keeps both users in context, and each
+screen decides which one to draw from. The site header shows the impersonated user's name, while
+an admin bar above it offers staff-only options such as "go to conversation admin". So:
+
+- Read "who am I" from the page content the test case is about, not from which admin tools
+  happen to be visible.
+- The admin bar is a quick way to reach the admin record for the current screen (step 5.7
+  admin links) without leaving the impersonation.
+- The staff session is still live underneath, so admin pages and the next fixture build work
+  without signing in again.
+- Crop screenshots to the user-facing element when the admin bar would make it unclear whose
+  view the shot shows.
+
 ### Feature flags
 
 - **Gargoyle flags.** Go to `/admin/nexus/gargoyle`, search for the flag, and set it to
@@ -270,8 +297,16 @@ execution needs in addition.
   ```
   It prints `GATE True` or `GATE False`. `for_randomized()` is enough for a plain on/off gate: the
   builder adds the environment's custom IDs itself, and the codebase's own killswitch checks do
-  the same (`contact_more_sitters/flags.py:31`). If it still shows the old value, wait and run it
-  again. Don't start the case until it matches. Record the output, and how long the sync took, in
+  the same (`contact_more_sitters/flags.py:31`). If it still shows the old value, don't wait
+  with a bare `sleep 60`: the harness blocks it ("Blocked: sleep 60 followed by: ... use Monitor
+  with an until-loop"). Poll with the **Monitor** tool running an until-loop. Put the expected
+  value in the grep, and cap the attempts so a sync that never lands can't hang the run:
+  ```bash
+  i=0; until m shell_plus -c "'from systems.statsig import statsig; from systems.statsig.statsig_user import StatsigUserBuilder; print(\"GATE\", statsig.check_gate(StatsigUserBuilder().for_randomized().build(), \"GATE_NAME\"))'" 2>&1 | grep -q '^GATE True'; do i=$((i+1)); [ "$i" -ge 20 ] && { echo "GATE still not True after $i tries"; exit 1; }; sleep 15; done; echo "GATE True after $i retries"
+  ```
+  (Use `'^GATE False'` when you're turning a gate off.) If it times out, stop and tell the user
+  rather than running the case against the wrong gate state. Don't start the case until it
+  matches. Record the output, and how long the sync took, in
   the Flag state section. Run the same check in step 2 to record the effective as-found value
   next to the table row.
 
