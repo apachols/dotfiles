@@ -108,7 +108,14 @@ below for the `execute-test-case`-specific rules that layer on top of it.
 Drive the browser with `playwright-cli` (ad-hoc). Per case:
 
 1. `mkdir -p <run>/test-case-<K>/screenshots`.
-2. **Capture the spec.** Copy the PR body's whole `## Test Case N` section — heading, Test
+2. **Capture the spec.** Normalize line endings first: a PR body from `gh pr view --json body`
+   usually has CRLF, so every line ends in `\r` and an anchored pattern like
+   `/^## Test Case 4$/` matches nothing — you get a silently empty `test-case.md`. Write the
+   body through `tr -d '\r'` before slicing it, and after extracting, verify the file is
+   non-empty and starts with the expected `## Test Case N` heading; if it is empty, re-check
+   the line endings rather than falling back to a hand-typed summary.
+
+   Copy the PR body's whole `## Test Case N` section — heading, Test
    Conditions, Test Execution, Expected Result, and the `<details>` manual-instructions block —
    verbatim into `<run>/test-case-<K>/test-case.md`, with the step 3 host rewrite applied — the
    saved instructions must carry the links you actually followed. Change nothing else: do not
