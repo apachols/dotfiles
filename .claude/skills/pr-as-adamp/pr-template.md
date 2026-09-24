@@ -222,8 +222,9 @@ visual separating that `___` used to do. Note the heading level: the case title 
 sections inside a case (`### Test Conditions`, etc.) stay at `###`.
 
 The body of a single test case is NOT defined here. Read `testcase-format.md` next to this
-file and follow it for every `<single test case body>` above: the Test Conditions /
-Test Execution / Expected Result sections, and the collapsed Manual Test Instructions block.
+file and follow it for every `<single test case body>` above: the one-line test case name,
+the collapsed Test Details block (Test Conditions / Test Execution / Expected Result), and the
+collapsed Manual Test Instructions block.
 
 Other Testing Do's and Do-Not's:
 - Don't list "run these unit tests" as a manual test step, CI will do that

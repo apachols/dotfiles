@@ -8,7 +8,10 @@ The block wrapper around test cases (the `## Test Case N` headings) lives in
 
 ```
 ## Test Case N
-- [ ] <one-line summary of what this case proves>
+- [ ] <one-line test case name — see "The top line" below>
+
+<details>
+<summary>Test Details</summary>
 
 ### Test Conditions
 - <precondition>
@@ -18,6 +21,8 @@ The block wrapper around test cases (the `## Test Case N` headings) lives in
 ### Expected Result
 - <observable outcome>
 - <observable outcome>
+
+</details>
 
 <details>
 <summary>Manual Test Instructions</summary>
@@ -30,12 +35,44 @@ The block wrapper around test cases (the `## Test Case N` headings) lives in
 </details>
 ```
 
-## Why the steps are collapsed
+## The top line
 
-- On first read the reviewer should see only the **intention** of each test — conditions, action, expected result
-- The manual steps stay inside `<details>` so they are collapsed by default
+The checkbox line right under the `## Test Case N` heading is the **name** of the case,
+and it's the only part a reviewer reads when scanning the whole suite.
+
+- Goal: each one-liner is memorable, and as easy to tell apart from the others as possible
+- Most suites are a permutation of 2–4 variables (tax state vs. no tax state, flag on vs.
+  flag off, enrolled vs. not enrolled, cancel vs. partial refund)
+- So the name should be **mostly composed of those variable values**, comma-separated,
+  in a short readable one-liner
+- Lead with the variable that differs most across the suite, then the action
+- Don't write generic framing like "Verify that…", "Ensure the system…", "Happy path" —
+  those read the same for every case
+- Don't restate the Expected Result in full; the name is a label, not a proof
+
+Good — a real suite, read top to bottom:
+
+```
+Enrolled relationship, rollout flag OFF, cancel the stay
+Enrolled relationship, flag OFF, partial refund
+Enrolled relationship, turn the flag off, EBS add a walk
+Enrolled relationship, nothing charged / pre checkout - flag off => no salestax
+Turn off rollout flag and then cycle, new week should have no sales tax
+Non-recurring bookings are untouched by the new gate
+Enrolled relationship, flag ON, the partial refund preview matches the refund issued
+```
+
+Note that the last two break the pattern on purpose — they're the cases where a
+*different* variable is the point, so the name says so.
+
+## Why both blocks are collapsed
+
+- On first read the reviewer should see only the **list of test case names** — the suite
+  as a scannable set of permutations
+- `Test Details` holds the intention of the test — conditions, action, expected result
+- `Manual Test Instructions` holds the steps
 - When executing, the reviewer opens one case at a time and follows just those instructions
-- Never hoist the manual steps out of the `<details>` block, and never leave it open
+- Never hoist either block's contents out of its `<details>`, and never leave one open
 
 ## Test Conditions / Test Execution / Expected Result
 
@@ -59,7 +96,10 @@ The block wrapper around test cases (the `## Test Case N` headings) lives in
 
 ```
 ## Test Case 1
-[ ] Rollout flag off, nothing enrolls
+- [ ] Non-enrolled relationship, rollout flag OFF, book recurring
+
+<details>
+<summary>Test Details</summary>
 
 ### Test Conditions
 - With the flag off
@@ -72,6 +112,8 @@ Book a new recurring relationship without using fixture templates
 - `rbr.sales_tax_recoupment_enabled is False`
 - No `sales-tax` OLI on the order
 - No tax line on the checkout ledger
+
+</details>
 
 <details>
 <summary>Manual Test Instructions</summary>
