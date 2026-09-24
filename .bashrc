@@ -122,3 +122,20 @@ function pytype()
       --config-file config/mypy.ini \
       --explicit-package-bases "$@" )
 }
+
+fp() {
+  # print absolute path of one or more files, without resolving symlinks
+  #   fp models.py  ->  /Users/adam.pacholski/projects/web/stays/models.py
+  local f rc=0
+  for f in "${@:-.}"; do
+    if [ -d "$f" ]; then
+      ( cd -- "$f" && printf '%s\n' "$PWD" )
+    elif [ -e "$f" ]; then
+      ( cd "$(dirname -- "$f")" && printf '%s/%s\n' "${PWD%/}" "$(basename -- "$f")" )
+    else
+      echo "fp: no such file: $f" >&2
+      rc=1
+    fi
+  done
+  return $rc
+}
