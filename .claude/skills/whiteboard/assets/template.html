@@ -1,0 +1,126 @@
+<title>{{TITLE}}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a stack of whiteboard panels, one per zoom step, with a sticky marker-tray nav */
+:root{
+  --bg:#eef1f4; --board:#fbfcfd; --ink:#1b2430; --muted:#5b6878; --rule:#d5dbe3;
+  --marker:#1d5fc4; --marker-soft:#e3ecfa; --red:#c2372d; --green:#2f7d4f;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12171e; --board:#1a212b; --ink:#e4e9ef; --muted:#9aa7b6; --rule:#2c3643;
+  --marker:#76a7f2; --marker-soft:#1f2d44; --red:#ef7b70; --green:#6fc394; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12171e; --board:#1a212b; --ink:#e4e9ef; --muted:#9aa7b6; --rule:#2c3643;
+  --marker:#76a7f2; --marker-soft:#1f2d44; --red:#ef7b70; --green:#6fc394; color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--body);padding:0 16px 64px}
+code{font-family:var(--mono);font-size:.86em;background:var(--marker-soft);padding:.05em .3em;border-radius:3px}
+a{color:var(--marker)}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--marker);outline-offset:2px}
+.wrap{max-width:980px;margin:0 auto}
+.intro{padding-block:40px 24px}
+.eyebrow{font:600 12px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font:700 clamp(28px,4.5vw,42px)/1.1 var(--display);margin:.35em 0 .3em;text-wrap:balance}
+.question{font-size:18px;max-width:62ch;margin:0}
+.source{color:var(--muted);font-size:13px;margin-top:10px}
+.tray{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--rule);padding-block:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tray button{font:600 13px var(--body);color:var(--ink);background:var(--board);border:1px solid var(--rule);border-radius:6px;padding:6px 12px;cursor:pointer}
+.tray button:hover{border-color:var(--marker)}
+.dots{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.dots a{width:28px;height:28px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--rule);font:600 12px var(--mono);text-decoration:none;color:var(--muted);background:var(--board)}
+.dots a.on{background:var(--marker);color:var(--board);border-color:var(--marker)}
+.hint{font-size:12px;color:var(--muted)}
+.deck{display:flex;flex-direction:column;gap:28px;padding-top:24px}
+.slide{background:var(--board);border:1px solid var(--rule);border-radius:10px;padding:24px clamp(16px,3vw,32px);scroll-margin-top:72px;display:flex;flex-direction:column;gap:16px}
+.slide:target{border-color:var(--marker)}
+.meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font:600 12px var(--mono);color:var(--muted)}
+.lvl{padding:3px 8px;border-radius:4px;letter-spacing:.04em;text-transform:uppercase}
+.lvl.l1{background:var(--marker);color:var(--board)}
+.lvl.l2{background:var(--marker-soft);color:var(--marker)}
+.lvl.l3{border:1px solid var(--marker);color:var(--marker)}
+.count{margin-left:auto;font-variant-numeric:tabular-nums}
+.crumbs{font-size:13px;color:var(--muted);margin-top:8px}
+.crumbs .sep{opacity:.5;margin:0 2px}
+.slide h2{font:700 clamp(22px,3vw,28px)/1.2 var(--display);margin:6px 0 0;text-wrap:balance}
+.board{overflow-x:auto;border:1px dashed var(--rule);border-radius:8px;padding:16px;background:var(--bg)}
+.board svg foreignObject{overflow:visible}
+.board pre{margin:0;display:flex;justify-content:center;min-width:0}
+.notes{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px;max-width:72ch}
+.notes li::marker{color:var(--marker)}
+.evidence summary{cursor:pointer;font:600 13px var(--mono);color:var(--marker)}
+.tw{overflow-x:auto;margin-top:10px}
+.evidence table{border-collapse:collapse;font-size:13px;width:100%}
+.evidence th{font:600 12px var(--mono);text-align:left;color:var(--muted);padding:6px 12px 6px 0;vertical-align:top;white-space:nowrap}
+.evidence td{padding:6px 0;border-top:1px solid var(--rule)}
+.evidence th{border-top:1px solid var(--rule)}
+.evidence td code{background:none;padding:0;word-break:break-word}
+.slide-foot:empty{display:none}
+.up{font-size:14px}
+</style>
+<div class="wrap">
+  <div class="intro">
+    <div class="eyebrow">{{EYEBROW}}</div>
+    <h1>{{TITLE}}</h1>
+    <p class="question">{{QUESTION}}</p>
+    <div class="source">Source: {{SOURCE}}</div>
+  </div>
+  <div class="tray" role="navigation" aria-label="Slides">
+    <button id="prev" type="button">← Back</button>
+    <button id="next" type="button">Next →</button>
+    <span class="hint">Arrow keys work too</span>
+    <div class="dots" id="dots"></div>
+  </div>
+  <main class="deck">
+{{SLIDES}}
+  </main>
+</div>
+<script>
+const ids = {{IDS}};
+const dots = document.getElementById("dots");
+ids.forEach((id, i) => {
+  const a = document.createElement("a");
+  a.href = "#" + id; a.textContent = i + 1; a.setAttribute("aria-label", "Slide " + (i + 1));
+  dots.appendChild(a);
+});
+let cur = 0, lockUntil = 0;
+const slides = [...document.querySelectorAll(".slide")];
+const tray = document.querySelector(".tray");
+function mark(i){ cur = i; [...dots.children].forEach((d, j) => d.classList.toggle("on", j === i)); }
+function go(i){
+  i = Math.max(0, Math.min(ids.length - 1, i));
+  mark(i);
+  lockUntil = Date.now() + 1000;
+  slides[i].scrollIntoView();
+  try { history.replaceState(null, "", "#" + ids[i]); } catch (e) {}
+}
+[...dots.children].forEach((d, i) => d.addEventListener("click", e => { e.preventDefault(); go(i); }));
+document.querySelectorAll('a[href^="#"]:not(.dots a)').forEach(a => a.addEventListener("click", e => {
+  const i = ids.indexOf(a.getAttribute("href").slice(1));
+  if (i >= 0) { e.preventDefault(); go(i); }
+}));
+document.getElementById("prev").onclick = () => go(cur - 1);
+document.getElementById("next").onclick = () => go(cur + 1);
+document.addEventListener("keydown", e => {
+  if (e.target.closest && e.target.closest("input,textarea")) return;
+  if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); go(cur + 1); }
+  if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); go(cur - 1); }
+});
+// The current slide is the last one whose top has reached the bottom of the nav bar.
+function sync(){
+  if (Date.now() < lockUntil) return;
+  const line = tray.getBoundingClientRect().bottom + 24;
+  let i = 0;
+  slides.forEach((s, j) => { if (s.getBoundingClientRect().top <= line) i = j; });
+  if (innerHeight + scrollY >= document.documentElement.scrollHeight - 4) i = slides.length - 1;
+  mark(i);
+}
+addEventListener("scroll", () => requestAnimationFrame(sync), { passive: true });
+const start = ids.indexOf(location.hash.slice(1));
+mark(start >= 0 ? start : 0);
+</script>

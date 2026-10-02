@@ -1,0 +1,146 @@
+title: "Seller-completed on recurring refunds"
+eyebrow: "Whiteboard session · recurring sales tax · PR 101593"
+question: "Why did PR 101593 need to reload the order before the seller-completed carry-over?"
+source: "roverdotcom/web PR 101593 head, plus master commit 916acb525a5 (#102311)"
+slides:
+- id: big-picture
+  level: 1
+  parent: null
+  title: "How a booking turns into money"
+  diagram_type: mermaid
+  diagram: |
+    %%{init: {"flowchart": {"rankSpacing": 28, "nodeSpacing": 70}}}%%
+    flowchart TB
+      RBR[recurring billing<br/>relationship] --> CONV
+      CONV[conversations<br/>Request, Stay] --> COM[commerce<br/>CommerceInterface]
+      COM --> ORD[orders<br/>OrderCollection, Order]
+      ORD --> TAX[sales tax<br/>line item]
+      COM --> PAY[payments]
+      PAY --> STRIPE[(Stripe)]
+  notes:
+    - "A Request is the thing being bought. commerce turns it into an Order inside an OrderCollection, which holds the original order plus every later delta (edits, refunds) for that booking."
+    - "Sales tax is a financial line item on the order. commerce then has payments charge or refund the order total through Stripe."
+    - "Recurring bookings repeat this each cycle, and each cycle gets a fresh conversation and order collection."
+  evidence:
+    "CONV->COM": "conversations/models/request.py:1156 calls CommerceInterface().complete_checkout_off_session(self)"
+    "COM->ORD": "commerce/interface_utils.py:252 _get_order_by_id reads through OrderInterface().get_order_collection_by_order_id"
+    "COM->PAY": "commerce/internal_commerce_interface.py, off-session charge path calls get_stripe_configuration_for_two_parties"
+    "RBR->CONV": "PR 101593 body: cycling rotates to a fresh conversation and order collection each cycle"
+
+- id: off-session
+  level: 2
+  parent: big-picture
+  focus: COM
+  title: "Off-session checkout is the recurring payment path"
+  diagram_type: mermaid
+  diagram: |
+    %%{init: {"flowchart": {"rankSpacing": 28, "nodeSpacing": 70}}}%%
+    flowchart TB
+      CYCLE[cycle auto-accept<br/>Request.<br/>_auto_accept_uc] --> OFF
+      EBS[owner edits a<br/>recurring stay<br/>conversation PUT view] --> AREBS[Request.<br/>auto_accept_<br/>recurring_ebs_uc]
+      AREBS --> OFF[CommerceInterface.<br/>complete_checkout_<br/>off_session]
+      OFF --> ICI[InternalCommerceInterface.<br/>complete_checkout_off_<br/>session_with_order_id]
+      ICI -->|total > 0| CHG[charge the stored card]
+      ICI -->|total < 0| REF[refund branch]
+      CHG --> PAY[payments to Stripe]
+      REF --> PAY
+  notes:
+    - "Yes, this runs for recurring. Off-session means the owner isn't on a checkout page, so commerce uses their stored card. Two recurring callers reach it: the cycle auto-accept and recurring EBS."
+    - "An EBS (edit booked stay) builds a delta order: positive when the edit costs more, negative when it costs less. A negative delta takes the refund branch."
+    - "PR 101593 (Stream E) makes tax ride along correctly on both branches while the rollout flag is being flipped."
+  evidence:
+    "CYCLE->OFF": "conversations/models/request.py:1076 _auto_accept ('Used in recurring billing cycling') -> 1146 _auto_accept_uc -> 1156"
+    "EBS->AREBS": "api/current/views/conversation_views.py:1034 latest_request.auto_accept_recurring_ebs_uc(...)"
+    "AREBS->OFF": "conversations/models/request.py:1312 interface.complete_checkout_off_session(...)"
+    "OFF->ICI": "commerce/interface.py:284 InternalCommerceInterface().complete_checkout_off_session_with_order_id(...)"
+    "ICI->REF": "commerce/internal_commerce_interface.py:760 if order.order_total_excluding_discount < Decimal('0.00')"
+
+- id: refund-branch
+  level: 3
+  parent: off-session
+  focus: REF
+  title: "The refund branch can replace the order"
+  diagram_type: mermaid
+  diagram: |
+    flowchart TB
+      subgraph R1 [" "]
+        direction LR
+        A["order =<br/>_get_order_by_id(id)<br/>a snapshot"] --> B["mark_seller_<br/>completed(id)<br/>writes the DB"]
+      end
+      subgraph R2 [" "]
+        direction LR
+        C{"total < 0?"} -->|yes| D["update_order_<br/>with_sales_tax(id)<br/>may build a NEW order"]
+      end
+      subgraph R3 [" "]
+        direction LR
+        E["_carry_over_seller_completed<br/>(previous, new)"] --> F["complete_checkout_<br/>with_order_id(new)"]
+      end
+      R1 --> R2 --> R3
+      style R1 fill:none,stroke:none
+      style R2 fill:none,stroke:none
+      style R3 fill:none,stroke:none
+  notes:
+    - "Refunds never reach a payment intent, where tax is normally added, so this branch rebuilds the order with tax. The rebuild can produce a new order, and a new order starts with seller_completed = False."
+    - "The carry-over copies the seller's acceptance onto the new order, but only when the previous order reports seller_completed = True."
+    - "Why the flag matters: at buyer checkout, a seller-completed order goes to COMPLETED and the refund is issued. Without it the order stops at INVOICED."
+  evidence:
+    "A": "commerce/internal_commerce_interface.py:738 order = _get_order_by_id(order_id)"
+    "B": "commerce/internal_commerce_interface.py:753 self.mark_seller_completed(order_id)"
+    "D": "commerce/internal_commerce_interface.py:579-581 update_order_with_sales_tax -> processor.build(skip_update_addresses=True)"
+    "E": "commerce/interface_utils.py:79 if new_order.seller_completed or not previous_order.seller_completed: return False"
+    "F": "commerce/order_processing/booking/processors.py:243 buyer + seller_completed -> COMPLETED, else INVOICED"
+
+- id: what-moved
+  level: 3
+  parent: refund-branch
+  focus: B
+  title: "What #102311 moved"
+  diagram_type: mermaid
+  diagram: |
+    flowchart LR
+      subgraph BEFORE["Before PR 102311"]
+        direction TB
+        b1["auto_accept_<br/>recurring_ebs_uc<br/>marks seller completed"] --> b2["function loads order<br/>seller_completed = True"]
+        b2 --> b3["carry-over sees True<br/>new order marked"]
+      end
+      subgraph AFTER["After PR 102311"]
+        direction TB
+        a1["auto_accept_<br/>recurring_ebs_uc<br/>no longer marks"] --> a2["function loads order<br/>seller_completed = False"]
+        a2 --> a3["function marks it<br/>DB True, snapshot False"]
+        a3 --> a4["carry-over sees False<br/>new order NOT marked"]
+      end
+      BEFORE ~~~ AFTER
+  notes:
+    - "The CommerceInterface refactor (#102311) removed interface.mark_seller_completed(self) from auto_accept_recurring_ebs_uc and added self.mark_seller_completed(order_id) inside the off-session function, after the order is loaded."
+    - "For the charge path that's equivalent. The refund branch is the one spot that reads seller_completed from the snapshot after the marking."
+    - "The existing unit test mocks _carry_over_seller_completed, so it couldn't see the change. The new test makes the mocked mark_seller_completed swap what _get_order_by_id returns."
+  evidence:
+    "b1": "git show 916acb525a5 -- conversations/models/request.py: '-            interface.mark_seller_completed(self)'"
+    "a3": "git show 916acb525a5 -- commerce/internal_commerce_interface.py: '+        self.mark_seller_completed(order_id)'"
+    "test": "commerce/tests/internal_commerce_interface_tests.py test_refund_order_rebuilt_by_sales_tax_pass_is_marked_seller_completed"
+
+- id: elie-answer
+  level: 3
+  parent: refund-branch
+  focus: E
+  title: "Nothing concurrent flips the flag"
+  diagram_type: mermaid
+  diagram: |
+    sequenceDiagram
+      participant Fn as off-session function
+      participant Snap as order snapshot
+      participant DB as orders DB
+      Fn->>DB: _get_order_by_id (738)
+      DB-->>Snap: copy with seller_completed False
+      Fn->>DB: mark_seller_completed (753)
+      Note over Snap: still False
+      Fn->>DB: update_order_with_sales_tax makes new order (771)
+      Fn->>DB: _get_order_by_id again (772, the fix)
+      DB-->>Fn: seller_completed True, so carry over
+  notes:
+    - "Elie's question assumes something else sets the flag mid-run. Nothing does. The same function sets it 15 lines after loading the order, on the same thread."
+    - "`order` is an OrderDataclass copied out of the order collection, a plain dataclass rather than a live model, so it never reflects later writes."
+    - "Re-reading the order right before the carry-over picks up the function's own write. It's the smallest change that keeps _carry_over_seller_completed's contract intact."
+  evidence:
+    "DB-->>Snap": "commerce/interface_utils.py:252-255 _get_order_by_id -> _get_order_data (262) builds commerce/dataclasses.py:11 @dataclass Order"
+    "fix": "commerce/internal_commerce_interface.py:772 _carry_over_seller_completed(_get_order_by_id(order_id), refund_order)"
