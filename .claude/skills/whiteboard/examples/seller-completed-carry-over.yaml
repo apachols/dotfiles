@@ -3,34 +3,8 @@ eyebrow: "Whiteboard session · recurring sales tax · PR 101593"
 question: "Why did PR 101593 need to reload the order before the seller-completed carry-over?"
 source: "roverdotcom/web PR 101593 head, plus master commit 916acb525a5 (#102311)"
 slides:
-- id: big-picture
-  level: 1
-  parent: null
-  title: "How a booking turns into money"
-  diagram_type: mermaid
-  diagram: |
-    %%{init: {"flowchart": {"rankSpacing": 28, "nodeSpacing": 70}}}%%
-    flowchart TB
-      RBR[recurring billing<br/>relationship] --> CONV
-      CONV[conversations<br/>Request, Stay] --> COM[commerce<br/>CommerceInterface]
-      COM --> ORD[orders<br/>OrderCollection, Order]
-      ORD --> TAX[sales tax<br/>line item]
-      COM --> PAY[payments]
-      PAY --> STRIPE[(Stripe)]
-  notes:
-    - "A Request is the thing being bought. commerce turns it into an Order inside an OrderCollection, which holds the original order plus every later delta (edits, refunds) for that booking."
-    - "Sales tax is a financial line item on the order. commerce then has payments charge or refund the order total through Stripe."
-    - "Recurring bookings repeat this each cycle, and each cycle gets a fresh conversation and order collection."
-  evidence:
-    "CONV->COM": "conversations/models/request.py:1156 calls CommerceInterface().complete_checkout_off_session(self)"
-    "COM->ORD": "commerce/interface_utils.py:252 _get_order_by_id reads through OrderInterface().get_order_collection_by_order_id"
-    "COM->PAY": "commerce/internal_commerce_interface.py, off-session charge path calls get_stripe_configuration_for_two_parties"
-    "RBR->CONV": "PR 101593 body: cycling rotates to a fresh conversation and order collection each cycle"
-
 - id: off-session
-  level: 2
-  parent: big-picture
-  focus: COM
+  parent: null
   title: "Off-session checkout is the recurring payment path"
   diagram_type: mermaid
   diagram: |
@@ -53,12 +27,11 @@ slides:
     "EBS->AREBS": "api/current/views/conversation_views.py:1034 latest_request.auto_accept_recurring_ebs_uc(...)"
     "AREBS->OFF": "conversations/models/request.py:1312 interface.complete_checkout_off_session(...)"
     "OFF->ICI": "commerce/interface.py:284 InternalCommerceInterface().complete_checkout_off_session_with_order_id(...)"
+    "CHG->PAY": "commerce/internal_commerce_interface.py off-session charge path calls get_stripe_configuration_for_two_parties"
     "ICI->REF": "commerce/internal_commerce_interface.py:760 if order.order_total_excluding_discount < Decimal('0.00')"
 
 - id: refund-branch
-  level: 3
   parent: off-session
-  focus: REF
   title: "The refund branch can replace the order"
   diagram_type: mermaid
   diagram: |
@@ -91,9 +64,7 @@ slides:
     "F": "commerce/order_processing/booking/processors.py:243 buyer + seller_completed -> COMPLETED, else INVOICED"
 
 - id: what-moved
-  level: 3
   parent: refund-branch
-  focus: B
   title: "What #102311 moved"
   diagram_type: mermaid
   diagram: |
@@ -120,9 +91,7 @@ slides:
     "test": "commerce/tests/internal_commerce_interface_tests.py test_refund_order_rebuilt_by_sales_tax_pass_is_marked_seller_completed"
 
 - id: elie-answer
-  level: 3
   parent: refund-branch
-  focus: E
   title: "Nothing concurrent flips the flag"
   diagram_type: mermaid
   diagram: |

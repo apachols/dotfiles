@@ -1,18 +1,21 @@
 ---
 name: whiteboard
-description: 'Explain existing code as a zoomable whiteboard deck, like a system design interview run in reverse: one big-picture diagram, then one box opened at a time down to the lines of code, every box and arrow backed by a file:line. Publishes a slide-style claude.ai Artifact with back/next, breadcrumbs and "show me the code" evidence. Use when the user asks to whiteboard something, walk through how part of the codebase works, explain why a change or PR was needed for someone new to the area, or answer a reviewer''s "how does this actually happen" question. Invoke with /whiteboard.'
+description: 'Explain existing code as a zoomable whiteboard deck, like a system design interview run in reverse: one system-level path from a user action to the external call, then one box opened at a time down to the lines of code, every box and arrow backed by a file:line. Publishes a slide-style claude.ai Artifact with back/next, breadcrumbs and "show me the code" evidence. Use when the user asks to whiteboard something, walk through how part of the codebase works, explain why a change or PR was needed for someone new to the area, or answer a reviewer''s "how does this actually happen" question. Invoke with /whiteboard.'
 ---
 
 # whiteboard
 
-Explain code one level at a time. Slide 1 shows the main building blocks. Each
-later slide opens one box from its parent, until the last slides show the actual
-lines. The output is a **deck file** (YAML) that `scripts/render.py` turns into
+Explain code one level at a time. Assume the reader already knows the big pieces
+(which Django apps exist, that payments talks to Stripe), so skip the
+architecture overview. Slide 1 is a system-design view of one path: it starts
+with a user action and ends at the external call (Stripe, Avalara, a webhook).
+Each later slide opens one box from its parent, until the last slides show the
+actual lines. The output is a **deck file** (YAML) that `scripts/render.py` turns into
 one artifact page. Content and rendering stay separate, so fixing a slide means
 editing the deck and re-rendering.
 
 The worked example is `examples/seller-completed-carry-over.yaml`. It answers
-"why did this PR need to reload the order?" in five slides, for a reader new to
+"why did this PR need to reload the order?" in four slides, for a reader new to
 commerce. Read it before writing a first deck.
 
 Needs `pyyaml`. `measure.py` also needs `playwright-cli` and one download of
@@ -27,7 +30,7 @@ Mermaid from cdn.jsdelivr.net, which it caches in `~/.cache/whiteboard/`.
    grep, `git show`, or an Explore subagent for wide sweeps. Without this you
    draw the architecture you expect instead of the real one. See "Evidence".
 3. **Write the deck** at `<scratchpad>/whiteboard/<slug>/deck.yaml`, starting
-   with level 1. Ask where the user keeps decks only if they want to keep one.
+   with the user-action-to-external-call slide. Ask where the user keeps decks only if they want to keep one.
 4. **Render and measure.**
    ```bash
    python3 <skill>/scripts/render.py <deck>.yaml
@@ -50,38 +53,38 @@ eyebrow: "Whiteboard session · recurring sales tax · PR 101593"
 question: "Why did PR 101593 need to reload the order before the carry-over?"
 source: "roverdotcom/web PR 101593 head, plus master commit 916acb525a5"
 slides:
-- id: big-picture            # stable, used in URLs and breadcrumbs
-  level: 1                   # 1 big blocks, 2 one block opened, 3 code
-  parent: null
-  title: "How a booking turns into money"
+- id: off-session            # stable, used in URLs and breadcrumbs
+  parent: null               # the first slide is the only root
+  title: "Off-session checkout is the recurring payment path"
   diagram: |
     flowchart TB
-      CONV[conversations] --> COM[commerce]
+      EBS[owner edits a recurring stay] --> OFF[complete_checkout_off_session]
+      OFF --> PAY[payments to Stripe]
   notes:
     - "What flows where, and why. Backticks render as `code`."
   evidence:                  # key: box or edge id, value: file:line + what is there
-    "CONV->COM": "conversations/models/request.py:1156 calls complete_checkout_off_session"
-- id: off-session
-  level: 2
-  parent: big-picture
-  focus: COM                 # the parent's box this slide opens
+    "EBS->OFF": "api/current/views/conversation_views.py:1034 auto_accept_recurring_ebs_uc"
+- id: refund-branch
+  parent: off-session        # breadcrumbs and "zoom out" come from parent
   ...
 ```
 
 `render.py` rejects duplicate ids and unknown parents. Order slides so that
-reading top to bottom walks down the zoom path. A sibling (a second level-3
-slide under the same parent) goes after the first one's children.
+reading top to bottom walks down the zoom path. A sibling (a second slide
+under the same parent) goes after the first one's children.
 
 ## Rules for each slide
 
-1. **Keep box ids stable across levels.** The box a slide opens (`focus`) keeps
-   its id from the parent, so a reader can find it again.
-2. **About 7 boxes per diagram.** If a diagram needs more, zoom in another level.
-3. **Two or three bullets.** Each bullet says what flows where and why, not what
+1. **Start at a user action and end at the external call.** That path is slide
+   1. Don't add an overview slide of the apps above it.
+2. **Keep box ids stable across levels.** The box a slide opens keeps the id and
+   label it had in the parent, so a reader can find it again.
+3. **About 7 boxes per diagram.** If a diagram needs more, zoom in another level.
+4. **Two or three bullets.** Each bullet says what flows where and why, not what
    the boxes are. Name the real function and file, never "the handler".
-4. **Back every box and arrow with evidence.** It appears under "Show me the
+5. **Back every box and arrow with evidence.** It appears under "Show me the
    code".
-5. **Keep the diagram between 3:4 and 4:3.** Chains of five or more boxes in one
+6. **Keep the diagram between 3:4 and 4:3.** Chains of five or more boxes in one
    row or one column are the usual problem. `measure.py` flags them, and
    `references/mermaid-layout.md` has measured fixes.
 

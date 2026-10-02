@@ -24,7 +24,8 @@ not just deleting.
 My dotfiles live at `/workspaces/.codespaces/.persistedshare/dotfiles` in a
 codespace (`$DOTFILES_PATH`, aliased to `dotfiles`).
 
-**In a Cloud Dev Env, never edit anything under `$DOTFILES_PATH` yourself.** All
+**In a Cloud Dev Env, never edit anything under `$DOTFILES_PATH` yourself**
+(Roverspaces have an exception, below). All
 dotfiles edits are made from my laptop and pushed. Show me the change as a
 snippet or a diff in chat and let me apply it there. The reason: my update
 command is `dotfiles && personalize && web`, where `dotfiles` does a `git pull`
@@ -44,7 +45,10 @@ control and get overwritten on my next `personalize`.
 
 ## Rules for Roverspaces
 
-Nothing specific to Roverspaces yet, but keep this block, to distinguish between RS/CS.
+Roverspaces can push to GitHub, so editing `$DOTFILES_PATH` here is fine when I ask
+for it (it's `/home/codespace/.config/coderv2/dotfiles`). Leave the changes
+uncommitted for me to review, and still never edit the installed copies under
+`~/.claude/` or run `personalize`.
 
 ## Rules for Codespaces
 

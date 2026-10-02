@@ -20,7 +20,6 @@ INIT = (
     '%%{init: {"themeVariables": {"fontSize": "17px"}, "flowchart": {"padding": 14}, '
     '"sequence": {"messageFontSize": 17, "noteFontSize": 16, "actorFontSize": 17}}}%%\n'
 )
-LEVELS = {1: "Big picture", 2: "One box opened", 3: "Code"}
 
 
 def load(deck_path):
@@ -61,11 +60,6 @@ def section(i, s, slides, by_id):
         if parent
         else ""
     )
-    focus = (
-        f'<span class="focus">Opening <code>{html.escape(s["focus"])}</code></span>'
-        if s.get("focus")
-        else ""
-    )
     notes = "".join(f"<li>{inline(n)}</li>" for n in s["notes"])
     evidence = "".join(
         f"<tr><th>{html.escape(k)}</th><td><code>{html.escape(v)}</code></td></tr>"
@@ -74,7 +68,6 @@ def section(i, s, slides, by_id):
     return f"""
 <section class="slide" id="{s["id"]}" data-i="{i}">
   <header class="slide-head">
-    <div class="meta"><span class="lvl l{s["level"]}">Level {s["level"]} · {LEVELS[s["level"]]}</span>{focus}<span class="count">{i + 1} / {len(slides)}</span></div>
     <nav class="crumbs">{crumb}</nav>
     <h2>{html.escape(s["title"])}</h2>
   </header>
