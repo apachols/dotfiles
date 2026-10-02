@@ -53,9 +53,9 @@ h1{font:700 clamp(28px,4.5vw,42px)/1.1 var(--display);margin:.35em 0 .3em;text-w
 .evidence th{font:600 12px var(--mono);text-align:left;color:var(--muted);padding:6px 12px 6px 0;vertical-align:top;white-space:nowrap}
 .evidence td{padding:6px 0;border-top:1px solid var(--rule)}
 .evidence th{border-top:1px solid var(--rule)}
-.evidence td code{background:none;padding:0;word-break:break-word}
-.slide-foot:empty{display:none}
-.up{font-size:14px}
+.evidence td{font:13px/1.5 var(--mono);word-break:break-word}
+.cite{user-select:all;-webkit-user-select:all;cursor:copy;color:var(--marker);background:var(--marker-soft);padding:.1em .35em;border-radius:3px;font-size:1em}
+.cite.copied{outline:1px solid var(--marker)}
 </style>
 <div class="wrap">
   <div class="intro">
@@ -117,4 +117,16 @@ function sync(){
 addEventListener("scroll", () => requestAnimationFrame(sync), { passive: true });
 const start = ids.indexOf(location.hash.slice(1));
 mark(start >= 0 ? start : 0);
+// One click selects the citation (user-select: all) and copies it when the
+// clipboard is available.
+document.addEventListener("click", e => {
+  const c = e.target.closest && e.target.closest(".cite");
+  if (!c) return;
+  try {
+    navigator.clipboard.writeText(c.textContent).then(() => {
+      c.classList.add("copied"); c.title = "Copied";
+      setTimeout(() => { c.classList.remove("copied"); c.title = "Click to copy"; }, 1200);
+    }, () => {});
+  } catch (err) {}
+});
 </script>

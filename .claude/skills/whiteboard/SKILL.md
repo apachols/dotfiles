@@ -65,7 +65,7 @@ slides:
   evidence:                  # key: box or edge id, value: file:line + what is there
     "EBS->OFF": "api/current/views/conversation_views.py:1034 auto_accept_recurring_ebs_uc"
 - id: refund-branch
-  parent: off-session        # breadcrumbs and "zoom out" come from parent
+  parent: off-session        # breadcrumbs come from parent
   ...
 ```
 
@@ -95,6 +95,8 @@ under the same parent) goes after the first one's children.
   `git show pr-<n>:<path> | grep -n ...`), not master or your working tree.
 - Cite paths relative to the Django app (`commerce/interface_utils.py:79`), since
   the repo is full of duplicate file names.
+  Write each one as `path:line` or `path:start-end`. `render.py` turns those into
+  click-to-copy chips under "Show me the code".
 - For "why did this change", find the commit that moved the behavior (`git show
   <sha> -- <path>`, then grep for the removed `^-` line) and cite both sides.
 - Re-check claims from earlier agents or reviewers. If one said "likely", read
@@ -117,9 +119,9 @@ Read `references/mermaid-layout.md` before writing diagrams. In short:
 ## The page
 
 `assets/template.html` holds the page: a sticky pager (back/next, numbered dots,
-arrow keys and j/k), breadcrumbs, a "zoom out to parent" link, and light and
-dark themes. Keep its pager logic. It marks the current slide as the last one
-whose top has reached the nav bar. An IntersectionObserver band was tried first,
+arrow keys and j/k), breadcrumbs, and light and dark themes. Keep its pager
+logic. It marks the current slide as the last one whose top has reached the nav
+bar. An IntersectionObserver band was tried first,
 and it marked the wrong slide whenever a slide was short.
 
 To change the look, edit the template, not `render.py`. The eyebrow, title,

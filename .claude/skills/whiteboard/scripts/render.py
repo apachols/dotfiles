@@ -6,6 +6,7 @@ Writes index.html next to the deck unless an output path is given.
 
 import html
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -42,6 +43,23 @@ def crumbs(slide, by_id):
     return list(reversed(path))
 
 
+# A repo path with an extension, optionally followed by :line or :start-end.
+CITATION = re.compile(r"[\w.-]+(?:/[\w.-]+)*\.[A-Za-z]{1,5}(?::\d+(?:-\d+)?)?")
+
+
+def cite(text):
+    """Escape evidence text and wrap each file citation so one click selects it."""
+    out, pos = [], 0
+    for m in CITATION.finditer(text):
+        if "/" not in m.group() and ":" not in m.group():
+            continue
+        out.append(html.escape(text[pos : m.start()]))
+        out.append(f'<code class="cite" title="Click to copy">{html.escape(m.group())}</code>')
+        pos = m.end()
+    out.append(html.escape(text[pos:]))
+    return "".join(out)
+
+
 def inline(text):
     parts = html.escape(text).split("`")
     return "".join(f"<code>{p}</code>" if i % 2 else p for i, p in enumerate(parts))
@@ -54,15 +72,9 @@ def section(i, s, slides, by_id):
         else f"<span>{html.escape(c['title'])}</span>"
         for c in crumbs(s, by_id)
     )
-    parent = by_id.get(s["parent"]) if s.get("parent") else None
-    up = (
-        f'<a class="up" href="#{parent["id"]}">Zoom out to “{html.escape(parent["title"])}”</a>'
-        if parent
-        else ""
-    )
     notes = "".join(f"<li>{inline(n)}</li>" for n in s["notes"])
     evidence = "".join(
-        f"<tr><th>{html.escape(k)}</th><td><code>{html.escape(v)}</code></td></tr>"
+        f"<tr><th>{html.escape(k)}</th><td>{cite(v)}</td></tr>"
         for k, v in (s.get("evidence") or {}).items()
     )
     return f"""
@@ -74,7 +86,6 @@ def section(i, s, slides, by_id):
   <div class="board"><pre class="mermaid">{html.escape(INIT + s["diagram"])}</pre></div>
   <ul class="notes">{notes}</ul>
   <details class="evidence"><summary>Show me the code</summary><div class="tw"><table>{evidence}</table></div></details>
-  <footer class="slide-foot">{up}</footer>
 </section>"""
 
 
