@@ -9,6 +9,7 @@ Needs playwright-cli on PATH and network access to cdn.jsdelivr.net once
 """
 
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -79,6 +80,7 @@ def main():
     shots = "--shots" in sys.argv
     work = deck_path.parent / ".measure"
     work.mkdir(exist_ok=True)
+    os.chdir(work)  # playwright-cli writes its session logs into the cwd
 
     if not CACHE.exists():
         CACHE.parent.mkdir(parents=True, exist_ok=True)

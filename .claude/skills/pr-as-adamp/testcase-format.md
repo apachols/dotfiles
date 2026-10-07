@@ -89,6 +89,7 @@ Note that the last two break the pattern on purpose — they're the cases where 
 - The detail line includes a hyperlink to the local test environment where possible
 - Where a link isn't possible, the detail line provides extra detail on how to execute
 - Link to admin **list** pages — record-specific edit page URLs need an id, and the test records don't exist yet
+- Link fixture steps to a `/run` URL with the options and entry point filled in, so one click builds the fixture and signs the tester in. `fixture-run-links.md` has the recipe
 - It's okay to roll a common workflow, like "book a stay", into a single line with a description instead of four steps and four links
 - Never list "run these unit tests" as a manual step — CI does that
 
@@ -120,11 +121,11 @@ Book a new recurring relationship without using fixture templates
 
 * Set flag OFF at
   - http://rover.local:8001/admin/statsig_gates/rollout_recurring_sales_tax_recoupment/
-* Create a user with /uc-recurring-scenario/, but leave the booking
-  - http://rover.local:8001/dev/fixtures/templates/uc-recurring-scenario/
+* Create a requester in a taxable state with /uc-recurring-scenario/, but leave its booking
+  - http://rover.local:8001/dev/fixtures/templates/uc-recurring-scenario/run?entrypoint=view_as_requester&impersonate=true&postalCode=%2296814%22
 * Find the sitter in search, and send a recurring request
   - http://rover.local:8001/search/?service_type=dog-walking&frequency=recurring
-* Book the request, and expect checkout ledger to show sales tax
+* Book the request, and expect no sales tax on the checkout ledger
   - search => contact => inbox => book
 * Expect rbr.sales_tax_recoupment_enabled to be False in the RBR admin
   - http://rover.local:8001/admin/recurring/recurringbillingrelationship/?q=
