@@ -2,7 +2,7 @@
 
 Canonical shape of **one** test case in the `### Test Cases` section of a PR body.
 The block wrapper around test cases (the `## Test Case N` headings) lives in
-`pr-template.md` — this file governs only what goes _inside_ one case.
+`suite-format.md` — this file governs only what goes _inside_ one case.
 
 ## Shape
 

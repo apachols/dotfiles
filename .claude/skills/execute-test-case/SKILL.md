@@ -127,7 +127,7 @@ Drive the browser with `playwright-cli` (ad-hoc). Per case:
 4. **Fixture.** Create the fixture template named in the PR with the specified parameters. Use the
    fixture entry point (`view_as_requester`, etc.) to authenticate. Open the PR's `/run` link
    directly. When the PR links only the template page and lists options, build the `/run` link
-   with `../pr-as-adamp/fixture-run-links.md` rather than filling in the form.
+   with `../create-pr-test-suite/fixture-run-links.md` rather than filling in the form.
 
    Heads up: some fixtures 500 on the page load right after the build completes — the records
    that were just created are not visible to that request yet (race condition). Refresh the page;

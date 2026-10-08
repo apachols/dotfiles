@@ -1,20 +1,18 @@
 ---
 name: pr-as-adamp
 description: "Create or update a Rover web PR the way adamp writes them: run the normal create-pr flow, then shape every section with adamp's personal PR style guide (bundled pr-template.md). Use when the user says /pr-as-adamp, 'make my PR', 'PR as me', 'PR in my style', or asks for a PR that follows their template/style notes."
-allowed-tools: Bash(gh:*), Bash(git:*), Grep, Glob, Read, Skill, mcp__gateway__atlassian_getJiraIssue
+allowed-tools: Bash(gh:*), Bash(git:*), Bash(curl:*), Bash(python3:*), Grep, Glob, Read, Skill, mcp__gateway__atlassian_getJiraIssue
 ---
 
 # PR as adamp
 
 Wrapper around the `create-pr` skill. `create-pr` decides *which* sections exist and does the git/gh mechanics; this skill decides *how each section is written*.
 
-## Step 1: Read the style guides
+## Step 1: Read the style guide
 
-Read **all three** files next to this SKILL.md:
+Read `pr-template.md` next to this SKILL.md — the canonical copy of adamp's annotated PR template. The fenced ```` ``` ```` blocks in it are **style notes for you**, not PR body content. Never copy a style-note block into a PR body.
 
-- `pr-template.md` — the canonical copy of adamp's annotated PR template. The fenced ```` ``` ```` blocks in it are **style notes for you**, not PR body content. Never copy a style-note block into a PR body.
-- `testcase-format.md` — the format of a **single** test case. Read it before writing the `### Test Cases` section; `pr-template.md` defines only the `## Test Case N` heading wrapper around cases.
-- `fixture-run-links.md` — how to look up a fixture template's options and entry points, and build the one-click `/run` link a test case's fixture step uses.
+The testing sections (`## Before testing`, `## Acceptance tests`) are written by the `create-pr-test-suite` skill, not by this one. See Step 3.
 
 ## Step 2: Run create-pr
 
@@ -35,10 +33,7 @@ Where `pr-template.md` and create-pr's guidance disagree on *wording or content 
 - **Brands**: remove the "this is a temporary question" annotation; keep Rover / Cat in a Flat / DogBuddy / MadPaws checked unless the diff is brand-scoped.
 - **AI code generation**: always check "All or nearly all (>75%)". Add **no** note on AI tool use, and delete the `> [!TIP]` "optionally add a note" callout. (This overrides create-pr's web.md, which asks for a note.)
 - **Reviewer instructions**: delete the whole section when there are no frontend changes. Leave the a11y checkbox unchecked when it stays.
-- **Before testing**: answer feature flags first, then users/fixtures. Nest sub-bullets for multi-step setup. List each fixture template the cases use, linked to its template page, e.g. `http://rover.local:8001/dev/fixtures/templates/1-standard-scenario`. Find candidates by grepping `(FixtureSetTemplate)` — the slug is defined a few lines below each class. Default to `1-standard-scenario` only when nothing fits better.
-- **Fixture steps in test cases**: link a `/run` URL that carries the options and the entry point, built per `fixture-run-links.md`. Never link the template page with a list of options for the tester to pick.
-- **Acceptance tests**: delete the `> [!IMPORTANT]` accessibility box. Use a `### Test Cases` section, titling each case with a `## Test Case N` heading per `pr-template.md`. Write each individual case exactly as `testcase-format.md` specifies — a checkbox name line built mostly out of the variables that case permutes, then `### Test Conditions` / `### Test Execution` / `### Expected Result` inside a collapsed `<details><summary>Test Details</summary>` block, then the manual steps inside a second collapsed `<details><summary>Manual Test Instructions</summary>` block. If any a11y testing is needed, put it in its own `### Accessibility Test Cases` section *before* `### Test Cases`. Never list "run these unit tests" as a manual step. Anything not practical to manual-test goes in a `### Out of Scope` section at the end, one bullet per item with the reason.
-- **shell_plus blocks**: fence as ```` ```python ````. Never one-liners via `m shell_plus -c "..."`. Assume the reviewer copies the whole block into a shell_plus session. Don't import model classes (shell_plus auto-imports them). Prefer `.last()` to grab the most recent fixture-created record.
+- **Before testing + Acceptance tests**: invoke the `create-pr-test-suite` skill (`Skill(skill: "create-pr-test-suite")`) with the diff and Jira context you already gathered, before composing the body. Place the two sections it returns into the body as is; don't reword them.
 
 ## Step 4: Pre-send check
 
@@ -49,6 +44,6 @@ Before calling `gh pr create` / `gh pr edit`, verify the body:
 3. Every section is bullets, not prose; each bullet is as short as it can be.
 4. Every section the repo template has is present; no section invented except `# Additional Context`.
 5. The reason section is 1–3 bullets and every one of them is an actual reason; any non-reason context moved down to `# Additional Context`.
-6. Test cases are runnable start-to-finish by someone else, with fixture + flag setup named, and each one matches `testcase-format.md` — all four parts present, Test Details and Manual Test Instructions each collapsed in their own `<details>`, top-line names composed of the permuted variables and distinct from each other, every detail line a local-env link or an explicit how-to, every fixture step a `/run` link with its options and entry point.
+6. `## Before testing` and `## Acceptance tests` are `create-pr-test-suite`'s output, unedited.
 
 Then create/update the draft PR, and report the URL plus any breaking-change warning.
