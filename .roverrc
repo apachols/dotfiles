@@ -20,36 +20,21 @@ function skillsync()
   _sync_claude_skills "$DOTFILES_PATH/.claude/skills" "$HOME/.claude/skills"
 }
 
+# Mutagen sync helpers; the work happens in the cloud-env-folder-share skill's
+# script, whose references/gotchas.md explains the Roverspace workarounds.
+_FOLDER_SHARE="$DOTFILES_PATH/.claude/skills/cloud-env-folder-share/scripts/cloud-env-folder-share.sh"
+
 function remotesync()
 {
-  local session_name="obsidian-remote-sync"
-  local local_dir="$HOME/obsidian/remote-sync"
-
-  if mutagen sync list "$session_name" >/dev/null 2>&1; then
-    echo "remotesync: resuming session $session_name"
-    mutagen sync resume "$session_name"
-    return
-  fi
-
-  local codespace
+  local codespace ssh_host
   codespace=$(gh codespace list --json name,state --jq '[.[] | select(.state=="Available")][0].name')
   if [ -z "$codespace" ]; then
     echo "remotesync: no available codespace found"
     return 1
   fi
-
-  # refresh ssh config aliases so cs.<name>[.<branch>] resolves for mutagen
-  gh codespace ssh --config > ~/.ssh/codespaces
-
-  local ssh_host
-  ssh_host=$(grep -m1 "^Host cs\.$codespace" ~/.ssh/codespaces | awk '{print $2}')
-  if [ -z "$ssh_host" ]; then
-    echo "remotesync: no ssh config entry for $codespace in ~/.ssh/codespaces"
-    return 1
-  fi
-
-  echo "remotesync: creating session $session_name ($local_dir <-> $ssh_host:/home/codespace/obsidian/remote-sync)"
-  mutagen sync create "$local_dir" "$ssh_host:/home/codespace/obsidian/remote-sync" --name="$session_name"
+  ssh_host=$("$_FOLDER_SHARE" codespace-host "$codespace") || return 1
+  "$_FOLDER_SHARE" up --kind codespace --host "$ssh_host" \
+    --local "$HOME/obsidian/remote-sync" --remote obsidian/remote-sync --name obsidian-remote-sync
 }
 
 # Which roverspace `rsp` and `roverspacesync` talk to. ROVERSPACE_TARGET (the
@@ -88,108 +73,10 @@ function rsp()
   ssh -A "$ssh_host"
 }
 
-# Coder starts ssh/scp sessions in /workspaces/web rather than $HOME, so every
-# remote path here is absolute. Two consequences worth remembering:
-#   - mutagen dials its agent by the *relative* path .mutagen/agents/<ver>/
-#     mutagen-agent, so it misses an agent that only exists under $HOME; the
-#     symlink below puts it back on that relative path.
-#   - mutagen's fallback self-install cannot work at all: it unpacks into /tmp
-#     (tmpfs) and renames into $HOME (overlayfs), which is a cross-device link.
-# So stage the agent ourselves and never let the fallback run.
-#
-# Safe to re-run: the scp is skipped when the right version is already staged,
-# but the leftover sweep and the symlink always run - the symlink is the part a
-# $WEB rebuild destroys. Sets _ROVERSPACE_REMOTE_HOME for the caller.
-function _roverspace_stage_mutagen_agent()
-{
-  local ssh_host="$1"
-  local version bundle tmpdir remote_home
-  version=$(mutagen version) || return 1
-
-  remote_home=$(ssh "$ssh_host" 'echo $HOME')
-  if [ -z "$remote_home" ]; then
-    echo "roverspacesync: could not read \$HOME on $ssh_host"
-    return 1
-  fi
-  _ROVERSPACE_REMOTE_HOME="$remote_home"
-
-  # sweep leftovers from any earlier fallback self-install: mutagen scp's the
-  # agent to .mutagen-agent<uuid> in the ssh landing dir, then fails the
-  # cross-device rename into $HOME and abandons the file. Coder lands us in
-  # $WEB, so every one of those shows up as untracked in the web repo.
-  ssh "$ssh_host" 'rm -f ./.mutagen-agent*'
-
-  local agent="$remote_home/.mutagen/agents/$version/mutagen-agent"
-  if ssh "$ssh_host" "[ -x '$agent' ]"; then
-    echo "roverspacesync: agent $version already staged on $ssh_host"
-  else
-    bundle="$(brew --prefix mutagen)/libexec/mutagen-agents.tar.gz"
-    if [ ! -f "$bundle" ]; then
-      echo "roverspacesync: no agent bundle at $bundle"
-      return 1
-    fi
-
-    tmpdir=$(mktemp -d) || return 1
-    tar xzf "$bundle" -C "$tmpdir" linux_amd64 || { rm -rf "$tmpdir"; return 1; }
-
-    ssh "$ssh_host" "mkdir -p '$remote_home/.mutagen/agents/$version'" &&
-      scp -q "$tmpdir/linux_amd64" "$ssh_host:$agent" ||
-      { rm -rf "$tmpdir"; return 1; }
-    rm -rf "$tmpdir"
-
-    ssh "$ssh_host" "chmod +x '$agent'" || return 1
-  fi
-
-  # link $HOME/.mutagen onto the dir ssh sessions actually land in, so the
-  # relative agent dial resolves. Rebuilt every run - this is what goes missing.
-  ssh "$ssh_host" "mkdir -p '$remote_home/mutagen'
-    if [ \"\$PWD\" != '$remote_home' ]; then
-      ln -sfn '$remote_home/.mutagen' \"\$PWD/.mutagen\"
-    fi"
-}
-
 function roverspacesync()
 {
-  local session_name="roverspace-mutagen"
-  local local_dir="$HOME/mutagen"
   local ssh_host
-
   ssh_host=$(_roverspace_host "$1") || return 1
-
-  mkdir -p "$local_dir"
-
-  # Stage before resuming, not only before creating. A $WEB rebuild (fresh
-  # clone, workspace rebuild, git clean) drops the .mutagen symlink; mutagen
-  # then falls back to the self-install that cannot work here, and a bare
-  # `resume` loops on "invalid cross-device link" forever.
-  echo "roverspacesync: staging mutagen agent on $ssh_host"
-  _roverspace_stage_mutagen_agent "$ssh_host" || {
-    echo "roverspacesync: agent staging failed"
-    return 1
-  }
-
-  if mutagen sync list "$session_name" >/dev/null 2>&1; then
-    echo "roverspacesync: resuming session $session_name"
-    mutagen sync resume "$session_name"
-    return
-  fi
-
-  local remote_dir
-  remote_dir="$_ROVERSPACE_REMOTE_HOME/mutagen"
-
-  echo "roverspacesync: creating session $session_name ($local_dir <-> $ssh_host:$remote_dir)"
-  mutagen sync create "$local_dir" "$ssh_host:$remote_dir" --name="$session_name"
-}
-
-# Sync ~/mutagen with the roverspace in both directions: the newer copy of a
-# file wins and nothing is deleted. Remote paths must be absolute because Coder
-# starts ssh sessions in /workspaces/web.
-function drop()
-{
-  local ssh_host remote_home
-  ssh_host=$(_roverspace_host "$1") || return 1
-  remote_home=$(ssh "$ssh_host" 'echo $HOME') || return 1
-  local opts=(-au --exclude='.obsidian/workspace*.json' --exclude=.DS_Store)
-  rsync "${opts[@]}" "$ssh_host:$remote_home/mutagen/" "$HOME/mutagen/" &&
-    rsync "${opts[@]}" "$HOME/mutagen/" "$ssh_host:$remote_home/mutagen/"
+  "$_FOLDER_SHARE" up --kind roverspace --host "$ssh_host" \
+    --local "$HOME/mutagen" --remote mutagen --name roverspace-mutagen
 }
