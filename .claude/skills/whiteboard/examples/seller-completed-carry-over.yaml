@@ -6,18 +6,6 @@ slides:
 - id: off-session
   parent: null
   title: "Off-session checkout is the recurring payment path"
-  diagram_type: mermaid
-  diagram: |
-    %%{init: {"flowchart": {"rankSpacing": 28, "nodeSpacing": 70}}}%%
-    flowchart TB
-      CYCLE[cycle auto-accept<br/>Request.<br/>_auto_accept_uc] --> OFF
-      EBS[owner edits a<br/>recurring stay<br/>conversation PUT view] --> AREBS[Request.<br/>auto_accept_<br/>recurring_ebs_uc]
-      AREBS --> OFF[CommerceInterface.<br/>complete_checkout_<br/>off_session]
-      OFF --> ICI[InternalCommerceInterface.<br/>complete_checkout_off_<br/>session_with_order_id]
-      ICI -->|total > 0| CHG[charge the stored card]
-      ICI -->|total < 0| REF[refund branch]
-      CHG --> PAY[payments to Stripe]
-      REF --> PAY
   notes:
     - "Yes, this runs for recurring. Off-session means the owner isn't on a checkout page, so commerce uses their stored card. Two recurring callers reach it: the cycle auto-accept and recurring EBS."
     - "An EBS (edit booked stay) builds a delta order: positive when the edit costs more, negative when it costs less. A negative delta takes the refund branch."
@@ -33,25 +21,6 @@ slides:
 - id: refund-branch
   parent: off-session
   title: "The refund branch can replace the order"
-  diagram_type: mermaid
-  diagram: |
-    flowchart TB
-      subgraph R1 [" "]
-        direction LR
-        A["order =<br/>_get_order_by_id(id)<br/>a snapshot"] --> B["mark_seller_<br/>completed(id)<br/>writes the DB"]
-      end
-      subgraph R2 [" "]
-        direction LR
-        C{"total < 0?"} -->|yes| D["update_order_<br/>with_sales_tax(id)<br/>may build a NEW order"]
-      end
-      subgraph R3 [" "]
-        direction LR
-        E["_carry_over_seller_completed<br/>(previous, new)"] --> F["complete_checkout_<br/>with_order_id(new)"]
-      end
-      R1 --> R2 --> R3
-      style R1 fill:none,stroke:none
-      style R2 fill:none,stroke:none
-      style R3 fill:none,stroke:none
   notes:
     - "Refunds never reach a payment intent, where tax is normally added, so this branch rebuilds the order with tax. The rebuild can produce a new order, and a new order starts with seller_completed = False."
     - "The carry-over copies the seller's acceptance onto the new order, but only when the previous order reports seller_completed = True."
@@ -66,21 +35,6 @@ slides:
 - id: what-moved
   parent: refund-branch
   title: "What #102311 moved"
-  diagram_type: mermaid
-  diagram: |
-    flowchart LR
-      subgraph BEFORE["Before PR 102311"]
-        direction TB
-        b1["auto_accept_<br/>recurring_ebs_uc<br/>marks seller completed"] --> b2["function loads order<br/>seller_completed = True"]
-        b2 --> b3["carry-over sees True<br/>new order marked"]
-      end
-      subgraph AFTER["After PR 102311"]
-        direction TB
-        a1["auto_accept_<br/>recurring_ebs_uc<br/>no longer marks"] --> a2["function loads order<br/>seller_completed = False"]
-        a2 --> a3["function marks it<br/>DB True, snapshot False"]
-        a3 --> a4["carry-over sees False<br/>new order NOT marked"]
-      end
-      BEFORE ~~~ AFTER
   notes:
     - "The CommerceInterface refactor (#102311) removed interface.mark_seller_completed(self) from auto_accept_recurring_ebs_uc and added self.mark_seller_completed(order_id) inside the off-session function, after the order is loaded."
     - "For the charge path that's equivalent. The refund branch is the one spot that reads seller_completed from the snapshot after the marking."
@@ -93,19 +47,6 @@ slides:
 - id: elie-answer
   parent: refund-branch
   title: "Nothing concurrent flips the flag"
-  diagram_type: mermaid
-  diagram: |
-    sequenceDiagram
-      participant Fn as off-session function
-      participant Snap as order snapshot
-      participant DB as orders DB
-      Fn->>DB: _get_order_by_id (738)
-      DB-->>Snap: copy with seller_completed False
-      Fn->>DB: mark_seller_completed (753)
-      Note over Snap: still False
-      Fn->>DB: update_order_with_sales_tax makes new order (771)
-      Fn->>DB: _get_order_by_id again (772, the fix)
-      DB-->>Fn: seller_completed True, so carry over
   notes:
     - "Elie's question assumes something else sets the flag mid-run. Nothing does. The same function sets it 15 lines after loading the order, on the same thread."
     - "`order` is an OrderDataclass copied out of the order collection, a plain dataclass rather than a live model, so it never reflects later writes."

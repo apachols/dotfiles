@@ -2,7 +2,9 @@
 
 Usage:
     cd ~/.claude/skills/excalidraw-skill/references
-    uv run python render_excalidraw.py <path-to-file.excalidraw> [--output path.png] [--scale 2] [--width 1920]
+    uv run python render_excalidraw.py <path-to-file.excalidraw> [--output path.png] [--scale 2] [--width 1920] [--svg]
+
+--svg also writes the exported SVG next to the PNG, fonts inlined, for embedding in a page.
 
 First-time setup:
     cd ~/.claude/skills/excalidraw-skill/references
@@ -103,6 +105,7 @@ def render(
     output_path: Path | None = None,
     scale: int = 2,
     max_width: int = 1920,
+    svg: bool = False,
 ) -> Path:
     """Render an .excalidraw file to PNG. Returns the output PNG path."""
     # Import playwright here so validation errors show before import errors
@@ -191,6 +194,8 @@ def render(
             sys.exit(1)
 
         svg_el.screenshot(path=str(output_path))
+        if svg:
+            output_path.with_suffix(".svg").write_text(svg_el.evaluate("el => el.outerHTML"), encoding="utf-8")
         browser.close()
 
     return output_path
@@ -202,13 +207,14 @@ def main() -> None:
     parser.add_argument("--output", "-o", type=Path, default=None, help="Output PNG path (default: same name with .png)")
     parser.add_argument("--scale", "-s", type=int, default=2, help="Device scale factor (default: 2)")
     parser.add_argument("--width", "-w", type=int, default=1920, help="Max viewport width (default: 1920)")
+    parser.add_argument("--svg", action="store_true", help="Also write the SVG next to the PNG")
     args = parser.parse_args()
 
     if not args.input.exists():
         print(f"ERROR: File not found: {args.input}", file=sys.stderr)
         sys.exit(1)
 
-    png_path = render(args.input, args.output, args.scale, args.width)
+    png_path = render(args.input, args.output, args.scale, args.width, args.svg)
     print(str(png_path))
 
 

@@ -1,26 +1,34 @@
 """Render a whiteboard deck file into a single artifact page.
 
 Usage: python3 render.py path/to/deck.yaml [out.html]
-Writes index.html next to the deck unless an output path is given.
+Renders each slide's .excalidraw file to SVG and PNG with the excalidraw-skill
+renderer, inlines the SVGs, and writes index.html next to the deck unless an
+output path is given. Prints each diagram's aspect ratio and exits 1 when one
+falls outside roughly 3:4..4:3.
 """
 
 import html
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 import yaml
 
 
-TEMPLATE = Path(__file__).resolve().parent.parent / "assets" / "template.html"
-
-# Prepended to every diagram. fontSize drives Mermaid's own box measurement, so
-# size text here rather than with page CSS, which would clip labels.
-INIT = (
-    '%%{init: {"themeVariables": {"fontSize": "17px"}, "flowchart": {"padding": 14}, '
-    '"sequence": {"messageFontSize": 17, "noteFontSize": 16, "actorFontSize": 17}}}%%\n'
+SKILLS = Path(__file__).resolve().parents[2]
+TEMPLATE = SKILLS / "whiteboard" / "assets" / "template.html"
+EXCALIDRAW = next(
+    p
+    for p in (
+        SKILLS / "excalidraw-skill" / "references",
+        Path.home() / ".claude" / "skills" / "excalidraw-skill" / "references",
+    )
+    if (p / "render_excalidraw.py").exists()
 )
+# 3:4 is 0.75 and 4:3 is 1.33; the band allows a little slack either side.
+LOW, HIGH = 0.7, 1.45
 
 
 def load(deck_path):
@@ -32,7 +40,24 @@ def load(deck_path):
     for s in deck["slides"]:
         if s.get("parent") and s["parent"] not in ids:
             sys.exit(f"slide {s['id']} has unknown parent {s['parent']}")
+        s["diagram"] = Path(deck_path).parent / s.get("diagram", f"{s['id']}.excalidraw")
+        if not s["diagram"].exists():
+            sys.exit(f"slide {s['id']}: no diagram at {s['diagram']}")
     return deck
+
+
+def draw(path):
+    """Render one .excalidraw file and return its SVG markup and width/height ratio."""
+    result = subprocess.run(
+        ["uv", "run", "--project", str(EXCALIDRAW), "python",
+         str(EXCALIDRAW / "render_excalidraw.py"), str(path), "--svg"],
+        capture_output=True, text=True,
+    )
+    if result.returncode:
+        sys.exit(f"{path}: {result.stderr.strip()}")
+    svg = path.with_suffix(".svg").read_text()
+    box = re.search(r'viewBox="[\d.-]+ [\d.-]+ ([\d.]+) ([\d.]+)"', svg)
+    return svg, float(box.group(1)) / float(box.group(2))
 
 
 def crumbs(slide, by_id):
@@ -65,7 +90,7 @@ def inline(text):
     return "".join(f"<code>{p}</code>" if i % 2 else p for i, p in enumerate(parts))
 
 
-def section(i, s, slides, by_id):
+def section(i, s, svg, by_id):
     crumb = " <span class=sep>/</span> ".join(
         f'<a href="#{c["id"]}">{html.escape(c["title"])}</a>'
         if c is not s
@@ -83,7 +108,7 @@ def section(i, s, slides, by_id):
     <nav class="crumbs">{crumb}</nav>
     <h2>{html.escape(s["title"])}</h2>
   </header>
-  <div class="board"><pre class="mermaid">{html.escape(INIT + s["diagram"])}</pre></div>
+  <div class="board">{svg}</div>
   <ul class="notes">{notes}</ul>
   <details class="evidence"><summary>Show me the code</summary><div class="tw"><table>{evidence}</table></div></details>
 </section>"""
@@ -95,6 +120,14 @@ def main():
     deck = load(deck_path)
     slides = deck["slides"]
     by_id = {s["id"]: s for s in slides}
+    bad = 0
+    svgs = {}
+    print(f"{'slide':<28} ratio")
+    for s in slides:
+        svgs[s["id"]], ratio = draw(s["diagram"])
+        flag = "" if LOW <= ratio <= HIGH else "  <-- outside roughly 3:4..4:3"
+        bad += bool(flag)
+        print(f"{s['id']:<28} {ratio:5.2f}{flag}")
     page = TEMPLATE.read_text()
     for key, value in {
         "{{TITLE}}": html.escape(deck["title"]),
@@ -102,13 +135,14 @@ def main():
         "{{QUESTION}}": html.escape(deck["question"]),
         "{{SOURCE}}": html.escape(deck["source"]),
         "{{SLIDES}}": "\n".join(
-            section(i, s, slides, by_id) for i, s in enumerate(slides)
+            section(i, s, svgs[s["id"]], by_id) for i, s in enumerate(slides)
         ),
         "{{IDS}}": json.dumps([s["id"] for s in slides]),
     }.items():
         page = page.replace(key, value)
     out.write_text(page)
-    print(f"wrote {out}")
+    print(f"wrote {out}; PNGs are next to each .excalidraw")
+    sys.exit(1 if bad else 0)
 
 
 if __name__ == "__main__":

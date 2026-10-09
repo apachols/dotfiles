@@ -42,9 +42,12 @@ h1{font:700 clamp(28px,4.5vw,42px)/1.1 var(--display);margin:.35em 0 .3em;text-w
 .crumbs{font-size:13px;color:var(--muted)}
 .crumbs .sep{opacity:.5;margin:0 2px}
 .slide h2{font:700 clamp(22px,3vw,28px)/1.2 var(--display);margin:6px 0 0;text-wrap:balance}
-.board{overflow-x:auto;border:1px dashed var(--rule);border-radius:8px;padding:16px;background:var(--bg)}
-.board svg foreignObject{overflow:visible}
-.board pre{margin:0;display:flex;justify-content:center;min-width:0}
+.board{overflow-x:auto;border:1px dashed var(--rule);border-radius:8px;padding:16px;background:#fff}
+.board svg{display:block;width:100%;min-width:600px;height:auto;max-height:78vh;margin:0 auto}
+/* Excalidraw's own dark mode: invert the white board and keep hues. */
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .board{background:#121212}:root:not([data-theme="light"]) .board svg{filter:invert(93%) hue-rotate(180deg)}}
+:root[data-theme="dark"] .board{background:#121212}
+:root[data-theme="dark"] .board svg{filter:invert(93%) hue-rotate(180deg)}
 .notes{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:8px;max-width:72ch}
 .notes li::marker{color:var(--marker)}
 .evidence summary{cursor:pointer;font:600 13px var(--mono);color:var(--marker)}
