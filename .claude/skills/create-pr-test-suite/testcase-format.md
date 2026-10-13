@@ -93,6 +93,23 @@ Note that the last two break the pattern on purpose — they're the cases where 
 - It's okay to roll a common workflow, like "book a stay", into a single line with a description instead of four steps and four links
 - Never list "run these unit tests" as a manual step — CI does that
 
+### Feature flags: set, never unset
+
+Each test case is **independent**. It states every feature flag value it depends on
+(gargoyle switches, statsig gates) as a Test Condition, and its first instructions set
+those flags to the values the case needs — whether or not the previous case left them
+that way.
+
+Because every case sets its own flags before proceeding, a case never has to restore
+them afterward.
+
+- Do list the flag-setting step up front, even when it's the same value as the case above
+- Do name every flag the case depends on, including ones that must stay OFF
+- **Never** end a case with "turn the flag back off", "restore the flag", "delete the
+  override when done", or any other flag cleanup step
+- The same goes for the `Expected Result` block — flag state after the test isn't an
+  outcome the case proves
+
 ## Example
 
 ```

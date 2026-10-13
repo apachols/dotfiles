@@ -61,7 +61,9 @@ Before handing the sections back, verify:
 5. Every detail line is a local-env link or an explicit how-to, and every fixture step is a
    `/run` link with its options and entry point.
 6. No "run these unit tests" step. Impractical items are in `### Out of Scope` with reasons.
-7. shell_plus blocks follow `suite-format.md`.
+7. Every case sets every flag it depends on up front, and no case ends with a step that
+   turns a flag back off or otherwise restores flag state.
+8. shell_plus blocks follow `suite-format.md`.
 
 ## Step 6: Deliver
 

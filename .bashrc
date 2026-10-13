@@ -18,6 +18,7 @@ if [[ $- == *i* ]]; then
 fi
 
 alias ll='ls -AlG'
+alias cc='claude'
 alias v='code -r'
 
 alias gitdiff='git diff --color'
