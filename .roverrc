@@ -73,6 +73,29 @@ function rsp()
   ssh -A "$ssh_host"
 }
 
+# Port-forward the roverspace's dev server so http://rover.local:8001 resolves
+# locally. Needs the coder CLI logged in, not the VPN. `coder port-forward` wants
+# `user/workspace.devcontainer`, a different shape than the ssh host above, so
+# this builds its own target from the same .secrets state. Runs in the
+# foreground - ctrl-c to stop. Override the port with a second arg.
+function coderportforward()
+{
+  local name="${1:-$ROVERSPACE_TARGET}"
+  local port="${2:-8001}"
+
+  if [ -z "$name" ]; then
+    echo "coderportforward: no target; pass a name or set ROVERSPACE_TARGET in .secrets" >&2
+    return 1
+  fi
+
+  if [ -z "${ROVERSPACE_USER:-}" ]; then
+    echo "coderportforward: set ROVERSPACE_USER in .secrets to qualify '$name'" >&2
+    return 1
+  fi
+
+  coder port-forward "$ROVERSPACE_USER/$name.devcontainer" --tcp "$port:$port"
+}
+
 function roverspacesync()
 {
   local ssh_host
