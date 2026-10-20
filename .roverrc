@@ -96,6 +96,28 @@ function coderportforward()
   coder port-forward "$ROVERSPACE_USER/$name.devcontainer" --tcp "$port:$port"
 }
 
+# Restart the roverspace. Fixes `rsp` failing with "Could not resolve hostname
+# devcontainer...": the devcontainer sub-agent sometimes fails to register
+# ("create subagent failed" in `coder show`), so its .coder DNS name never
+# exists even though the workspace and its `main` agent look healthy. Needs the
+# coder CLI logged in. coder still asks to confirm, and drops VS Code sessions.
+function restartspace()
+{
+  local name="${1:-$ROVERSPACE_TARGET}"
+
+  if [ -z "$name" ]; then
+    echo "restartspace: no target; pass a name or set ROVERSPACE_TARGET in .secrets" >&2
+    return 1
+  fi
+
+  if [ -z "${ROVERSPACE_USER:-}" ]; then
+    echo "restartspace: set ROVERSPACE_USER in .secrets to qualify '$name'" >&2
+    return 1
+  fi
+
+  coder restart "$ROVERSPACE_USER/$name"
+}
+
 function roverspacesync()
 {
   local ssh_host
