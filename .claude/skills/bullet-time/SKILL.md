@@ -81,6 +81,22 @@ Forbidden closers: "Hope this helps", "Let me know if you need anything else".
 
 One command per block, shell-tagged, no `$` prefix, no interleaved output.
 
+### 9. Page anything longer than one page
+
+If the answer does not fit in one 200-word response, do not cut substance —
+split it into pages and send one page per response. Do not ask first; paging
+is the default.
+
+* Plan the split before sending page 1, so `Y` is known and stable.
+* Each page follows the full format: verdict line (page 1 only), numbered
+  sections, citations. Section numbers continue across pages.
+* End every page with a `Page X / Y` line.
+* While `X < Y`, end the page with a **Next** button: the turn's `wrap_up`
+  action (label `Next`, message `next`) when the app offers one, otherwise a
+  final line `Reply **next** for page X+1 / Y`.
+* On "next", send the following page with no recap of earlier pages.
+* The last page (`X = Y`) carries the gaps section (rule 6) and no Next button.
+
 ## When to break the rules
 
 1. Destructive action ahead — confirm plainly. Safety outranks brevity.
@@ -89,6 +105,9 @@ One command per block, shell-tagged, no `$` prefix, no interleaved output.
 
 ## Pre-send check
 
-1. Count words. Over 200? Cut a section, not the citations.
+1. Count words. Over 200? Cut a section, not the citations — or, if the
+   content is all needed, page it (rule 9).
 2. Options listed without a recommendation?
 3. First line an answer, or an announcement?
+4. On page `X / Y` with `X < Y`? There **must** be a Next button. No
+   exceptions — a missing Next strands the reader mid-summary.
