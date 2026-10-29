@@ -7,9 +7,17 @@ const RUNBOOK = "https://roverdotcom.atlassian.net/wiki/spaces/TECH/pages/196100
 const OVERVIEW = "https://roverdotcom.atlassian.net/wiki/spaces/TECH/pages/4123002944/Technology+Components";
 const CHANGE_FORM = "https://roverdotcom.atlassian.net/servicedesk/customer/portal/29/group/124/create/535";
 
-const KIND_BOOST = { team: 1.15, subconcept: 1.1, component: 1.0, code: 0.8 };
+const GITHUB_TREE = "https://github.com/roverdotcom/web/tree/";
+const CODEOWNERS_FILE = "https://github.com/roverdotcom/web/blob/master/.github/CODEOWNERS";
+const CODEWATCHERS_FILE = "https://github.com/roverdotcom/web/blob/master/danger/CODEWATCHERS";
+
+const KIND_BOOST = { team: 1.15, subconcept: 1.1, component: 1.0, route: 0.95, code: 0.8 };
 const RESULTS_LIMIT = 25;
 const CODE_LIMIT = 15;
+const PATH_LIMIT = 8;
+const TABLE_LIMIT = 40;
+const PURITY_THRESHOLD = 0.8;
+const SOURCE_LABEL = { codeowners: "CODEOWNERS", codewatchers: "CODEWATCHERS", concepts: "concept tag" };
 
 const $ = (sel) => document.querySelector(sel);
 const view = $("#view");
@@ -22,6 +30,14 @@ const subsByName = new Map();
 const componentsBySub = new Map();
 const subsByTeam = new Map();
 const driftBySub = new Map();
+const routesBySub = new Map();
+const globsByTeam = new Map();
+// Directory -> [owner set id, files directly in it], for directories that hold files.
+const DIRS = new Map();
+// Every directory, including ones that only hold other directories.
+const ALL_DIRS = new Set();
+// Files whose owners differ from their directory's.
+const FILES = new Map();
 
 // ---------- text helpers ----------
 
@@ -135,15 +151,31 @@ function link(kind, value) {
   return `#${kind}=${encodeURIComponent(value)}`;
 }
 
-function teamPill(name) {
-  if (!name) return `<span class="chip retired">No owner</span>`;
+// Why something has no owner depends on which source was asked.
+const NO_OWNER = {
+  assets: ["No team in Jira Assets", "Jira Assets lists no owning team for this subconcept."],
+  unfiled: ["Not under a subconcept", "In Jira Assets this component sits directly under its concept, not under a subconcept, so no team owns it."],
+  code: ["No code owner", "No CODEOWNERS or CODEWATCHERS rule matches, and no subconcept tagged in the file has a team."],
+};
+
+function noOwner(reason) {
+  const [label, title] = NO_OWNER[reason];
+  return `<span class="chip retired no-owner" title="${esc(title)}">${label}</span>`;
+}
+
+function teamPill(name, reason = "assets") {
+  if (!name) return noOwner(reason);
   return `<a class="team-pill" href="${link("team", name)}">${esc(name)}</a>`;
 }
 
-function slackLink(team, label) {
+function slackLink(team) {
   const t = teamsByName.get(team);
   if (!t || !t.slack) return "";
-  return `<a class="slack" href="${SLACK}${esc(t.slack)}" target="_blank" rel="noopener">${label || "Slack"}</a>`;
+  return `<a class="slack" href="${SLACK}${esc(t.slack)}" target="_blank" rel="noopener">${t.slackName ? `#${esc(t.slackName)}` : "Team Slack channel"}</a>`;
+}
+
+function assetsLink(id, label = "Open in Jira Assets") {
+  return `<a class="assets-link" href="${ASSETS_OBJECT}${esc(id)}" target="_blank" rel="noopener">${label}</a>`;
 }
 
 function statusChip(status) {
@@ -204,6 +236,26 @@ function index(data) {
       });
     }
   }
+  for (const [kind, pattern, name, sub, path, line] of data.routes) {
+    const r = { kind, pattern, name, sub, path, line };
+    if (!routesBySub.has(sub)) routesBySub.set(sub, []);
+    routesBySub.get(sub).push(r);
+    DOCS.push({ kind: "route", ref: r, fields: [field(pattern, 3), field(name, 2.5), field(path, 1)] });
+  }
+
+  let prev = "";
+  for (const [shared, rest, owners, n] of data.paths.dirs) {
+    const dir = prev.slice(0, shared) + rest;
+    DIRS.set(dir, [owners, n]);
+    for (let d = dir; d && !ALL_DIRS.has(d); d = parentDir(d)) ALL_DIRS.add(d);
+    prev = dir;
+  }
+  for (const [path, owners] of Object.entries(data.paths.files)) FILES.set(path, owners);
+  for (const [glob, team, purity, files, owned] of data.paths.map) {
+    if (!team) continue;
+    if (!globsByTeam.has(team)) globsByTeam.set(team, []);
+    globsByTeam.get(team).push([glob, team, purity, files, owned]);
+  }
 }
 
 function ownerOf(subName) {
@@ -214,17 +266,107 @@ function codeHref(path, line) {
   return `${GITHUB}${DATA.source.webSha || "master"}/${path}#L${line}`;
 }
 
+function parentDir(path) {
+  const i = path.lastIndexOf("/");
+  return i < 0 ? "" : path.slice(0, i);
+}
+
+function plural(n, word) {
+  return `${n.toLocaleString()} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function pct(part, whole) {
+  return whole ? `${Math.round((100 * part) / whole)}%` : "0%";
+}
+
+// ---------- code paths ----------
+
+function ownersOfFile(path) {
+  if (FILES.has(path)) return FILES.get(path);
+  return DIRS.get(parentDir(path))?.[0] ?? 0;
+}
+
+function primaryOf(ownerSet) {
+  return DATA.paths.owners[ownerSet][0]?.[0] || null;
+}
+
+// Files under dir counted by primary owner ("" for no owner), most first.
+function rollup(dir) {
+  const prefix = dir ? dir + "/" : "";
+  const counts = new Map();
+  let total = 0;
+  const add = (ownerSet, n) => {
+    const team = primaryOf(ownerSet) || "";
+    counts.set(team, (counts.get(team) || 0) + n);
+    total += n;
+  };
+  for (const [d, [owners, n]] of DIRS) if (d === dir || d.startsWith(prefix)) add(owners, n);
+  for (const [f, owners] of FILES) {
+    if (!f.startsWith(prefix)) continue;
+    add(DIRS.get(parentDir(f))[0], -1);
+    add(owners, 1);
+  }
+  return { total, counts: [...counts].filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]) };
+}
+
+function cleanPathQuery(q) {
+  return q
+    .trim()
+    .replace(/^https?:\/\/github\.com\/roverdotcom\/web\/(?:blob|tree)\/[^/]+\//, "")
+    .replace(/#L\d+.*$/, "")
+    .replace(/:\d+(?::\d+)?$/, "")
+    .replace(/^(?:\.\/|\/)+/, "")
+    .replace(/^web\//, "")
+    .replace(/\/+$/, "");
+}
+
+function looksLikePath(q) {
+  const t = q.trim();
+  return !!t && !/\s/.test(t) && (t.includes("/") || /\.[a-z0-9]{1,5}$/i.test(t));
+}
+
+function pathMatches(q) {
+  const p = cleanPathQuery(q);
+  if (!p) return [];
+  const out = [];
+  const seen = new Set();
+  const push = (m) => {
+    if (!seen.has(m.path)) {
+      seen.add(m.path);
+      out.push(m);
+    }
+  };
+  const endsWith = (full, part) => full === part || full.endsWith("/" + part);
+  for (const d of ALL_DIRS) if (endsWith(d, p)) push({ kind: "dir", path: d });
+  for (const f of FILES.keys()) if (endsWith(f, p)) push({ kind: "file", path: f });
+  const slash = p.lastIndexOf("/");
+  const base = p.slice(slash + 1);
+  if (slash > 0 && base.includes(".")) {
+    const dirPart = p.slice(0, slash);
+    for (const d of DIRS.keys()) if (endsWith(d, dirPart)) push({ kind: "file", path: `${d}/${base}` });
+  }
+  if (!out.length && p.length >= 3) {
+    for (const d of ALL_DIRS) {
+      if (d.includes(p)) push({ kind: "dir", path: d });
+      if (out.length >= PATH_LIMIT) break;
+    }
+  }
+  return out.sort((a, b) => a.path.length - b.path.length).slice(0, PATH_LIMIT);
+}
+
 // ---------- renderers ----------
 
 function componentCard(c, tokens = []) {
   const desc = c.description ? `<div class="card-desc">${highlight(c.description, tokens)}</div>` : "";
+  const href = c.subconcept ? `href="${link("sub", c.subconcept)}"` : `href="${ASSETS_OBJECT}${esc(c.id)}" target="_blank" rel="noopener"`;
+  const sub = c.subconcept ? esc(c.subconcept) : `${esc(c.concept || "")} concept · not under any subconcept in Jira Assets`;
   return `<div class="card">
     <div class="card-top">
-      <a class="card-title stretched" href="${link("sub", c.subconcept)}">${highlight(c.short || c.name, tokens)}</a>
-      <span class="chip">${esc(c.type || "Component")}</span>${statusChip(c.status)}
-      <span class="card-owner">${teamPill(c.team || ownerOf(c.subconcept))}</span>
+      <a class="card-title stretched" ${href}>${highlight(c.short || c.name, tokens)}</a>
+      <span class="chip kind">${esc(c.type || "Component")}</span>${statusChip(c.status)}
+      <span class="card-owner">${teamPill(c.team || ownerOf(c.subconcept), c.subconcept ? "assets" : "unfiled")}</span>
     </div>
-    <div class="card-sub">${esc(c.subconcept || c.concept || "")}</div>${desc}
+    <div class="card-sub">${sub}</div>${desc}
   </div>`;
 }
 
@@ -237,7 +379,7 @@ function subconceptCard(s, tokens = []) {
   return `<div class="card">
     <div class="card-top">
       <a class="card-title stretched" href="${link("sub", s.name)}">${highlight(s.name, tokens)}</a>
-      <span class="chip">Subconcept</span>${statusChip(s.status)}
+      <span class="chip kind">Subconcept</span>${statusChip(s.status)}
       <span class="card-owner">${teamPill(s.team)}</span>
     </div>
     ${s.description ? `<div class="card-desc">${highlight(s.description, tokens)}</div>` : ""}
@@ -245,16 +387,23 @@ function subconceptCard(s, tokens = []) {
   </div>`;
 }
 
-function teamCard(t, tokens = []) {
+function teamSummary(t) {
   const subs = subsByTeam.get(t.name) || [];
   const comps = subs.reduce((n, s) => n + (componentsBySub.get(s.name) || []).length, 0);
+  const files = DATA.paths.teamFiles[t.name] || 0;
+  return [subs.length && plural(subs.length, "subconcept"), comps && plural(comps, "component"), files && plural(files, "file")]
+    .filter(Boolean)
+    .join(" · ") || "Nothing";
+}
+
+function teamCard(t, tokens = []) {
   const aka = t.context ? ` · aka ${highlight(t.context, tokens)}` : "";
   return `<div class="card">
     <div class="card-top">
       <a class="card-title stretched" href="${link("team", t.name)}">${highlight(t.name, tokens)}</a>
-      <span class="chip">Team</span>${statusChip(t.status)}
+      <span class="chip kind">${t.person ? "Person" : "Team"}</span>${statusChip(t.status)}
     </div>
-    <div class="card-sub">Owns ${subs.length} subconcept${subs.length === 1 ? "" : "s"} and ${comps} component${comps === 1 ? "" : "s"}${aka}</div>
+    <div class="card-sub">Owns ${teamSummary(t)}${aka}</div>
   </div>`;
 }
 
@@ -263,14 +412,90 @@ function codeRow(r, tokens = [], showOwner = true) {
   return `<a class="code-row" href="${codeHref(r.path, r.line)}" target="_blank" rel="noopener" title="${esc(r.sub)}">
     ${r.symbol ? `<span class="sym">${highlight(r.symbol, tokens)}</span>` : ""}
     <span class="path">${highlight(r.path, tokens)}:${r.line}</span>
-    ${showOwner ? `<span class="own">${esc(owner || "No owner")} · ${esc(r.sub.split(": ").pop())}</span>` : ""}
+    ${showOwner ? `<span class="own">${esc(owner || NO_OWNER.assets[0])} · ${esc(r.sub.split(": ").pop())}</span>` : ""}
   </a>`;
+}
+
+function routeRow(r, tokens = [], showOwner = true) {
+  const pattern = r.pattern || "(include root)";
+  return `<a class="code-row" href="${codeHref(r.path, r.line)}" target="_blank" rel="noopener" title="${esc(r.path)}:${r.line}">
+    <span class="chip">${r.kind === "react" ? "React" : "Django"}</span>
+    <span class="sym">${highlight(pattern, tokens)}</span>
+    <span class="path">${highlight(r.name || r.path, tokens)}</span>
+    ${showOwner ? `<span class="own">${esc(ownerOf(r.sub) || NO_OWNER.assets[0])} · ${esc(r.sub.split(": ").pop())}</span>` : ""}
+  </a>`;
+}
+
+// One pill per team with the sources that named it, primary owner first.
+function ownerSetHtml(ownerSet) {
+  const entries = DATA.paths.owners[ownerSet] || [];
+  if (!entries.length) return noOwner("code");
+  const byTeam = new Map();
+  for (const [team, source] of entries) {
+    if (!byTeam.has(team)) byTeam.set(team, []);
+    byTeam.get(team).push(source);
+  }
+  return [...byTeam]
+    .map(([team, sources], i) => `<span class="owner">${teamPill(team)}${sources.map((s) => `<span class="chip src">${SOURCE_LABEL[s]}</span>`).join("")}${i === 0 && byTeam.size > 1 ? `<span class="chip primary">primary</span>` : ""}</span>`)
+    .join("");
+}
+
+function rollupHtml(r, limit = 4) {
+  const parts = r.counts.slice(0, limit).map(([team, n]) => `${team ? esc(team) : "no code owner"} ${pct(n, r.total)}`);
+  if (r.counts.length > limit) parts.push(`${r.counts.length - limit} more`);
+  return `${plural(r.total, "file")} · ${parts.join(" · ")}`;
+}
+
+function pathCard(m, tokens = []) {
+  if (m.kind === "file") {
+    return `<div class="card">
+      <div class="card-top">
+        <a class="card-title stretched mono" href="${GITHUB}${DATA.source.webSha}/${esc(m.path)}" target="_blank" rel="noopener">${highlight(m.path, tokens)}</a>
+        <span class="chip kind">File</span>
+      </div>
+      <div class="owners">${ownerSetHtml(ownersOfFile(m.path))}</div>
+    </div>`;
+  }
+  const direct = DIRS.get(m.path);
+  return `<div class="card">
+    <div class="card-top">
+      <a class="card-title stretched mono" href="${link("path", m.path)}">${highlight(m.path, tokens)}/</a>
+      <span class="chip kind">Directory</span>
+    </div>
+    <div class="card-sub">${rollupHtml(rollup(m.path))}</div>
+    ${direct ? `<div class="owners"><span class="muted small">Files directly here:</span>${ownerSetHtml(direct[0])}</div>` : ""}
+  </div>`;
+}
+
+function globTable(rows, { owner = true } = {}) {
+  if (!rows.length) return `<p class="empty">None.</p>`;
+  const row = ([glob, team, purity, files, owned]) => {
+    const base = glob.replace(/\/?\*+$/, "");
+    return `<tr>
+      <td><a class="mono" href="${link("path", base)}">${esc(glob)}</a></td>
+      ${owner ? `<td>${teamPill(team, "code")}</td>` : ""}
+      <td class="num">${team ? pct(purity, 1) : "–"}</td>
+      <td class="num">${files.toLocaleString()}</td>
+      <td class="num">${pct(owned, files)}</td>
+    </tr>`;
+  };
+  const id = `t${Math.random().toString(36).slice(2, 8)}`;
+  const head = `<thead><tr><th>Glob</th>${owner ? "<th>Main owner</th>" : ""}<th class="num" title="Share of owned files that belong to the main owner">Consistency</th><th class="num">Files</th><th class="num" title="Files with an owner from any source">Covered</th></tr></thead>`;
+  setTimeout(() => {
+    document.getElementById(`${id}-more`)?.addEventListener("click", (e) => {
+      document.getElementById(id).innerHTML = rows.map(row).join("");
+      e.target.remove();
+    });
+  });
+  return `<div class="table-scroll"><table class="drift">${head}<tbody id="${id}">${rows.slice(0, TABLE_LIMIT).map(row).join("")}</tbody></table></div>
+    ${rows.length > TABLE_LIMIT ? `<button class="btn more" id="${id}-more">Show all ${rows.length.toLocaleString()}</button>` : ""}`;
 }
 
 function renderCard(doc, tokens) {
   if (doc.kind === "component") return componentCard(doc.ref, tokens);
   if (doc.kind === "subconcept") return subconceptCard(doc.ref, tokens);
   if (doc.kind === "team") return teamCard(doc.ref, tokens);
+  if (doc.kind === "route") return routeRow(doc.ref, tokens);
   return codeRow(doc.ref, tokens);
 }
 
@@ -291,10 +516,12 @@ function renderSearch(q) {
   }
   const looksLikeCode = !/\s/.test(q.trim()) && /[\/._]|[a-z][A-Z]/.test(q.trim());
   scored.sort((a, b) => b[0] - a[0]);
-  const main = scored.filter(([, d]) => d.kind !== "code");
+  const main = scored.filter(([, d]) => d.kind !== "code" && d.kind !== "route");
+  const routes = scored.filter(([, d]) => d.kind === "route");
   const code = scored.filter(([, d]) => d.kind === "code");
+  const paths = looksLikePath(q) ? pathMatches(q) : [];
 
-  if (!main.length && !code.length) {
+  if (!main.length && !code.length && !routes.length && !paths.length) {
     view.innerHTML = `<p class="empty">Nothing matched <b>${esc(q)}</b>. Try fewer or different words, a file path, or
       <a href="#teams">browse by team</a>. If it really isn't here, ask in
       <a href="${SLACK}CU7G1BZHS" target="_blank" rel="noopener">#who-owns-that</a>.</p>`;
@@ -314,7 +541,22 @@ function renderSearch(q) {
       <div class="code-list" id="code-results">${code.slice(0, CODE_LIMIT).map(([, d]) => codeRow(d.ref, tokens)).join("")}</div>`;
     if (code.length > CODE_LIMIT) codeHtml += `<button class="btn more" id="more-code">Show all ${code.length}</button>`;
   }
-  view.innerHTML = looksLikeCode && code.length ? codeHtml + mainHtml : mainHtml + codeHtml;
+  let routeHtml = "";
+  if (routes.length) {
+    routeHtml = `<h2>URL routes (${routes.length})</h2>
+      <p class="muted small">Django URL patterns and React routes labelled with a subconcept. A Django pattern is relative to where its <code>urls.py</code> is included.</p>
+      <div class="code-list">${routes.slice(0, CODE_LIMIT).map(([, d]) => routeRow(d.ref, tokens)).join("")}</div>`;
+  }
+  let pathHtml = "";
+  if (paths.length) {
+    pathHtml = `<h2>Code paths</h2>
+      <p class="muted small">Owners from <code>CODEOWNERS</code>, then <code>CODEWATCHERS</code>, then the subconcept tags in the file, the same as <code>bin/file-owners</code>. The first is the primary owner. <a href="#paths">Code map</a></p>
+      <div class="results">${paths.map((m) => pathCard(m, tokens)).join("")}</div>`;
+  }
+  const looksLikeUrl = q.trim().startsWith("/") && routes.length;
+  if (looksLikeUrl) view.innerHTML = routeHtml + pathHtml + mainHtml + codeHtml;
+  else if (looksLikeCode && code.length) view.innerHTML = pathHtml + codeHtml + mainHtml + routeHtml;
+  else view.innerHTML = pathHtml + mainHtml + routeHtml + codeHtml;
   $("#more-code")?.addEventListener("click", (e) => {
     $("#code-results").innerHTML = code.map(([, d]) => codeRow(d.ref, tokens)).join("");
     e.target.remove();
@@ -322,7 +564,7 @@ function renderSearch(q) {
 }
 
 function renderHome() {
-  const examples = ["cancellation page", "rebook", "stripe", "background check", "inbox", "account_inbox/views.py", "datadog", "sitter search"];
+  const examples = ["cancellation page", "rebook", "stripe", "background check", "inbox", "account_inbox/views.py", "/checkout/", "src/frontend/kibble", "sitter search"];
   view.innerHTML = `
     <p class="muted">Try: ${examples.map((e) => `<a href="${link("q", e)}">${esc(e)}</a>`).join(" · ")}</p>
     <h2>Browse by team</h2>
@@ -331,20 +573,21 @@ function renderHome() {
 }
 
 function teamGrid() {
-  const teams = [...DATA.teams].sort((a, b) => (subsByTeam.get(b.name) || []).length - (subsByTeam.get(a.name) || []).length);
+  const size = (t) => [(subsByTeam.get(t.name) || []).length, DATA.paths.teamFiles[t.name] || 0];
+  const teams = [...DATA.teams].sort((a, b) => {
+    const [sa, fa] = size(a);
+    const [sb, fb] = size(b);
+    return sb - sa || fb - fa;
+  });
   return `<div class="team-grid">${teams
-    .map((t) => {
-      const subs = subsByTeam.get(t.name) || [];
-      const comps = subs.reduce((n, s) => n + (componentsBySub.get(s.name) || []).length, 0);
-      return `<a class="team-tile" href="${link("team", t.name)}"><b>${esc(t.name)} ${statusChip(t.status)}</b>
-        <span>${subs.length} subconcepts · ${comps} components</span></a>`;
-    })
+    .map((t) => `<a class="team-tile" href="${link("team", t.name)}"><b>${esc(t.name)} ${statusChip(t.status)}</b>
+        <span>${teamSummary(t)}</span></a>`)
     .join("")}</div>`;
 }
 
 function renderTeams() {
   view.innerHTML = `<h1 class="page">Teams</h1>
-    <p class="lede">Every team that owns at least one subconcept or component, with the most ownership first.</p>
+    <p class="lede">Every team that owns a subconcept or component in Jira Assets, or code in <code>CODEOWNERS</code>, <code>CODEWATCHERS</code> or a subconcept tag. The most ownership comes first.</p>
     ${teamGrid()}`;
 }
 
@@ -357,29 +600,44 @@ function renderTeam(name) {
   const drift = DATA.drift.filter((d) => d.assetsTeam === name || d.taxonomyTeam === name);
   const codeCount = subs.reduce((n, s) => n + (DATA.code[s.name] || []).length, 0);
   const compCount = subs.reduce((n, s) => n + (componentsBySub.get(s.name) || []).length, 0);
+  const fileCount = DATA.paths.teamFiles[name] || 0;
+  const globs = [...(globsByTeam.get(name) || [])].sort((a, b) => b[4] - a[4]);
 
   const facts = [
     t.dri && `<span>DRI <b>${esc(t.dri.replace(/\s*\(.*\)$/, ""))}</b></span>`,
     t.parent && `<span>Part of <b>${esc(t.parent)}</b></span>`,
     t.context && `<span>Also known as <b>${esc(t.context)}</b></span>`,
     t.jiraComponent && `<span>Jira component <b>${esc(t.jiraComponent)}</b></span>`,
+    t.github?.length && `<span>GitHub <b>${t.github.map((h) => `<code>${esc(h)}</code>`).join(", ")}</b></span>`,
   ].filter(Boolean);
+  const owns = [
+    subs.length && plural(subs.length, "subconcept"),
+    compCount && plural(compCount, "component"),
+    codeCount && plural(codeCount, "tagged code symbol"),
+    fileCount && `${plural(fileCount, "file")} as primary owner`,
+  ].filter(Boolean);
+  const missing = t.person
+    ? `<div class="callout info">This is a person named in <code>CODEOWNERS</code> or <code>CODEWATCHERS</code>, not a team.</div>`
+    : `<div class="callout">This team owns things here but has no entry in the People Directory.</div>`;
 
   view.innerHTML = `
     <h1 class="page">${esc(t.name)} ${statusChip(t.status)}</h1>
-    <p class="lede">Owns ${subs.length} subconcepts, ${compCount} components and ${codeCount} tagged code symbols.</p>
+    <p class="lede">Owns ${owns.length ? owns.join(", ") : "nothing"}.</p>
     <div class="facts">${facts.join("")}</div>
     <div class="actions">
-      ${t.slack ? `<a class="btn primary" href="${SLACK}${esc(t.slack)}" target="_blank" rel="noopener">Open team Slack channel</a>` : ""}
+      ${t.slack ? `<a class="btn accent-2" href="${SLACK}${esc(t.slack)}" target="_blank" rel="noopener">${t.slackName ? `#${esc(t.slackName)}` : "Open team Slack channel"}</a>` : ""}
       ${t.confluence ? `<a class="btn" href="${esc(t.confluence)}" target="_blank" rel="noopener">Confluence</a>` : ""}
-      ${t.id ? `<a class="btn" href="${ASSETS_OBJECT}${esc(t.id)}" target="_blank" rel="noopener">People Directory entry</a>` : ""}
+      ${t.id ? `<a class="btn accent-2" href="${ASSETS_OBJECT}${esc(t.id)}" target="_blank" rel="noopener">People Directory entry</a>` : ""}
     </div>
-    ${t.missingFromDirectory ? `<div class="callout">This team owns things in Technology Components but has no entry in the People Directory.</div>` : ""}
+    ${t.missingFromDirectory ? missing : ""}
     ${t.status && t.status !== "Active" ? `<div class="callout">The People Directory marks this team <b>${esc(t.status)}</b>, but it still owns the subconcepts below. They probably need a new owner.</div>` : ""}
     ${drift.length ? `<div class="callout">${drift.length} of this team's subconcepts have a different owner in <code>taxonomy.yml</code>. See <a href="#drift">drift</a>.</div>` : ""}
     <h2>Subconcepts and components</h2>
     ${subs.map(subBlock).join("") || `<p class="empty">No subconcepts.</p>`}
     ${strays.length ? `<h2>Components listed under another team's subconcept</h2><div class="results">${strays.map((c) => componentCard(c)).join("")}</div>` : ""}
+    <h2>Code paths (${globs.length})</h2>
+    ${globs.length ? `<p class="muted small">Globs where this team is the main owner, split the way <code>bin/subdivide-files</code> splits a branch, with the most owned files first. See the <a href="#paths">code map</a>.</p>` : ""}
+    ${globs.length ? globTable(globs, { owner: false }) : `<p class="empty">This team is not the main owner of any directory.</p>`}
   `;
 }
 
@@ -399,6 +657,7 @@ function renderSub(name) {
   if (!s) return notFound("subconcept", name);
   const comps = componentsBySub.get(name) || [];
   const code = (DATA.code[name] || []).map(([path, line, symbol]) => ({ path, line, symbol, sub: name }));
+  const routes = routesBySub.get(name) || [];
   const drift = driftBySub.get(name);
   const facts = [
     s.concept && `<span>Concept <b>${esc(s.concept)}</b></span>`,
@@ -410,15 +669,82 @@ function renderSub(name) {
   view.innerHTML = `
     <h1 class="page">${esc(s.name)} ${statusChip(s.status)}</h1>
     ${s.description ? `<p class="lede">${esc(s.description)}</p>` : ""}
-    <div class="actions">${teamPill(s.team)} ${slackLink(s.team, "Team Slack channel")}
-      <a class="slack" href="${ASSETS_OBJECT}${esc(s.id)}" target="_blank" rel="noopener">Open in Jira Assets</a></div>
+    <div class="actions">${teamPill(s.team)} ${slackLink(s.team)} ${assetsLink(s.id)}</div>
     <div class="facts">${facts.join("")}</div>
     ${s.rationale ? `<div class="callout info"><b>Why this team:</b> ${esc(s.rationale)}</div>` : ""}
     ${drift ? `<div class="callout"><code>taxonomy.yml</code> in <code>web</code> says <b>${esc(drift.taxonomyTeam)}</b> owns this, but Jira Assets says <b>${esc(drift.assetsTeam)}</b>. Code metrics, SLOs and alerts follow <code>taxonomy.yml</code>.</div>` : ""}
     <h2>Components (${comps.length})</h2>
     ${comps.length ? `<div class="results">${comps.map((c) => componentCard(c)).join("")}</div>` : `<p class="empty">No components listed.</p>`}
+    ${routes.length ? `<h2>URL routes (${routes.length})</h2><div class="code-list">${routes.map((r) => routeRow(r, [], false)).join("")}</div>` : ""}
     <h2>Tagged code (${code.length})</h2>
     ${code.length ? `<div class="code-list">${code.map((r) => codeRow(r, [], false)).join("")}</div>` : `<p class="empty">Nothing in <code>web</code> is tagged with this subconcept.</p>`}
+  `;
+}
+
+function renderCodeMap() {
+  const st = DATA.paths.stats;
+  const rows = DATA.paths.map;
+  const unowned = rows.filter((r) => r[4] === 0).sort((a, b) => b[3] - a[3]);
+  const mixed = rows.filter((r) => r[1] && r[2] < PURITY_THRESHOLD).sort((a, b) => b[3] - a[3]);
+  const partial = rows.filter((r) => r[1] && r[4] < r[3]).sort((a, b) => b[3] - b[4] - (a[3] - a[4]));
+  const unownedFiles = unowned.reduce((n, r) => n + r[3], 0);
+  view.innerHTML = `
+    <h1 class="page">Code map</h1>
+    <p class="lede">Who owns each part of <code>web</code>. A file's owners come from
+      <a href="${CODEOWNERS_FILE}" target="_blank" rel="noopener"><code>CODEOWNERS</code></a> (who approves),
+      <a href="${CODEWATCHERS_FILE}" target="_blank" rel="noopener"><code>CODEWATCHERS</code></a> (who wants to know) and the
+      <code>CONCEPTS.x.y</code> tags in the file, in that order, the same as <code>bin/file-owners</code>.
+      The tree is split into globs the way <code>bin/subdivide-files</code> splits a branch: a directory stops splitting once
+      ${pct(PURITY_THRESHOLD, 1)} of its owned files share a main owner.</p>
+    <div class="facts">
+      <span>Files <b>${st.files.toLocaleString()}</b></span>
+      <span>With a CODEOWNERS owner <b>${pct(st.codeowners, st.files)}</b></span>
+      <span>With any owner <b>${pct(st.owned, st.files)}</b></span>
+      <span>Rules <b>${st.codeownersRules} CODEOWNERS · ${st.codewatchersRules} CODEWATCHERS</b></span>
+    </div>
+    <h2>No owner from any source (${unowned.length} globs, ${plural(unownedFiles, "file")})</h2>
+    ${globTable(unowned, { owner: false })}
+    <h2>Mixed ownership (${mixed.length})</h2>
+    <p class="muted small">Globs too small to split further whose owned files are spread across teams.</p>
+    ${globTable(mixed)}
+    <h2>Owned, with unowned files inside (${partial.length})</h2>
+    <p class="muted small">Unowned files ride along with the main owner when a branch is split, but nothing names an owner for them. Most unowned files first.</p>
+    ${globTable(partial)}
+    <h2>Every glob (${rows.length})</h2>
+    ${globTable([...rows].sort((a, b) => a[0].localeCompare(b[0])))}
+  `;
+}
+
+function renderPath(path) {
+  const p = cleanPathQuery(path);
+  const isDir = p === "" || ALL_DIRS.has(p);
+  if (!isDir && !DIRS.has(parentDir(p))) return notFound("path", path);
+  if (!isDir) {
+    view.innerHTML = `<h1 class="page mono">${esc(p)}</h1>
+      <div class="actions"><a class="btn" href="${GITHUB}${DATA.source.webSha}/${esc(p)}" target="_blank" rel="noopener">Open on GitHub</a></div>
+      <div class="owners">${ownerSetHtml(ownersOfFile(p))}</div>
+      <p class="small"><a href="${link("path", parentDir(p))}">${esc(parentDir(p) || "web")}/</a></p>`;
+    return;
+  }
+  const r = rollup(p);
+  const direct = DIRS.get(p);
+  const prefix = p ? p + "/" : "";
+  const globs = DATA.paths.map.filter(([g]) => g.startsWith(prefix) || g === `${p}/**` || g === `${p}/*`);
+  const exceptions = [...FILES].filter(([f]) => f.startsWith(prefix));
+  const crumbs = p.split("/").map((part, i, all) => `<a href="${link("path", all.slice(0, i + 1).join("/"))}">${esc(part)}</a>`);
+  view.innerHTML = `
+    <h1 class="page mono">${crumbs.join("/")}/</h1>
+    <div class="actions"><a class="btn" href="${GITHUB_TREE}${DATA.source.webSha}/${esc(p)}" target="_blank" rel="noopener">Open on GitHub</a></div>
+    <p class="lede">${plural(r.total, "file")}, counted by primary owner.</p>
+    <div class="table-scroll"><table class="drift"><thead><tr><th>Primary owner</th><th class="num">Files</th><th class="num">Share</th></tr></thead><tbody>
+      ${r.counts.map(([team, n]) => `<tr><td>${teamPill(team, "code")}</td><td class="num">${n.toLocaleString()}</td><td class="num">${pct(n, r.total)}</td></tr>`).join("")}
+    </tbody></table></div>
+    ${direct ? `<h2>Files directly in this directory (${direct[1]})</h2><div class="owners">${ownerSetHtml(direct[0])}</div>` : ""}
+    ${exceptions.length ? `<h2>Files with their own owners (${exceptions.length})</h2>
+      <p class="muted small">Files whose owners differ from the rest of their directory.</p>
+      <div class="results">${exceptions.slice(0, TABLE_LIMIT).map(([f]) => pathCard({ kind: "file", path: f })).join("")}</div>` : ""}
+    <h2>Globs (${globs.length})</h2>
+    ${globTable(globs)}
   `;
 }
 
@@ -457,18 +783,22 @@ function renderAbout() {
       <div><b>Q3 2025 Maker Days</b>Imported into Jira Assets as the <a href="${OVERVIEW}" target="_blank" rel="noopener">Technology Components</a> schema.</div>
       <div><b>Jira Assets</b>Concept → Subconcept → Component. Each subconcept has exactly one owning team.</div>
       <div><b>web/taxonomy.yml</b>The same subconcepts, used to tag code with <code>CONCEPTS.x.y</code>.</div>
-      <div><b>This site</b>Joins both, plus team Slack channels from the People Directory.</div>
+      <div><b>CODEOWNERS, CODEWATCHERS</b>Path rules in <code>web</code> for who approves and who is notified.</div>
+      <div><b>This site</b>Joins them all, plus team Slack channels from the People Directory.</div>
     </div>
     <ul>
       <li><b>Subconcepts, components, concepts:</b> Jira Assets schema 42, Technology Components.</li>
-      <li><b>Teams:</b> Jira Assets People Directory → Groups (Slack channel, DRI, parent team, former names).</li>
+      <li><b>Teams:</b> Jira Assets People Directory → Groups (Slack channel, DRI, parent team, former names). A <code>CODEOWNERS</code> handle like <code>@roverdotcom/client-platform</code> is matched to its group by name.</li>
       <li><b>Tagged code:</b> every <code>CONCEPTS.&lt;concept&gt;.&lt;subconcept&gt;</code> reference in <code>web</code>, outside tests and migrations, credited to its enclosing class or function. TypeScript symbols are a best guess from the nearest declaration.</li>
+      <li><b>URL routes:</b> Django <code>path()</code>/<code>re_path()</code> patterns labelled with a subconcept (directly or through <code>label_url_resolver</code>), and React SSR routes with a <code>concept</code>.</li>
+      <li><b>Code paths:</b> every tracked file, owned the way <code>bin/file-owners</code> owns it, using its own matching code from <code>web</code>: <a href="${CODEOWNERS_FILE}" target="_blank" rel="noopener"><code>CODEOWNERS</code></a> first, then <a href="${CODEWATCHERS_FILE}" target="_blank" rel="noopener"><code>CODEWATCHERS</code></a>, then the teams of the subconcepts the file mentions. The first is the primary owner. The <a href="#paths">code map</a> groups them with <code>bin/subdivide-files</code>.</li>
     </ul>
 
     <h2>Changing who owns something</h2>
     <p>EMs edit <a href="${DATA.source.assets}?typeId=33&view=list" target="_blank" rel="noopener">Jira Assets</a> directly, then do the downstream steps in the
       <a href="${RUNBOOK}" target="_blank" rel="noopener">Updating Technology Components runbook</a> (taxonomy.yml, alerts, CWV mapping, Jira components).
       There is also a <a href="${CHANGE_FORM}" target="_blank" rel="noopener">concept/subconcept change request form</a>.
+      To change who owns a code path, open a PR against <code>.github/CODEOWNERS</code> or <code>danger/CODEWATCHERS</code> in <code>web</code>.
       This site picks up the change the next time it is refreshed.</p>
 
     <h2>How this site is refreshed</h2>
@@ -521,6 +851,8 @@ function route() {
   if (key === "sub") return renderSub(value);
   if (key === "teams") return renderTeams();
   if (key === "drift") return renderDrift();
+  if (key === "paths") return renderCodeMap();
+  if (key === "path") return renderPath(value);
   if (key === "about") return renderAbout();
   renderHome();
 }
@@ -568,7 +900,7 @@ fetch("data.json")
     DATA = data;
     index(data);
     const when = new Date(data.generatedAt);
-    $("#freshness").innerHTML = `${data.subconcepts.length} subconcepts, ${data.components.length} components and ${DOCS.filter((d) => d.kind === "code").length} tagged code symbols. Refreshed ${esc(when.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }))}. <a href="#about">How this works</a>`;
+    $("#freshness").innerHTML = `${data.subconcepts.length} subconcepts, ${data.components.length} components, ${data.routes.length} URL routes, ${DOCS.filter((d) => d.kind === "code").length.toLocaleString()} tagged code symbols and ${data.paths.stats.files.toLocaleString()} files. Refreshed ${esc(when.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }))}. <a href="#about">How this works</a>`;
     route();
   })
   .catch((err) => {

@@ -11,10 +11,15 @@ Builds a static site from three sources and publishes it to `who-owns-that` on Y
 |---|---|---|
 | Jira Assets schema 42, Technology Components | Concepts, subconcepts (each with one owning team), components | Atlassian MCP, AQL `objectSchemaId = 42` |
 | Jira Assets People Directory, Groups (type 15) | Team Slack channel, DRI, parent team, former names | Atlassian MCP, AQL `objectTypeId = 15` |
-| `web` at `origin/master` | `taxonomy.yml` (for drift) and every `CONCEPTS.x.y` tag in code | `git cat-file`, never the working tree |
+| `web` at `origin/master` | `taxonomy.yml` (for drift), every `CONCEPTS.x.y` tag in code, URL routes labelled with a subconcept, and the owners of every tracked file from `.github/CODEOWNERS` and `danger/CODEWATCHERS` | `git cat-file`, never the working tree |
 
 `scripts/build.py` joins them into `data.json` beside the files in `site/`. The page is plain
 HTML/JS with no dependencies, because Yard blocks every CDN.
+
+File ownership runs `bin/ownership.py` and `subdivide()` from `bin/subdivide-files`, loaded from
+the same ref, so the site gives the same owners as `bin/file-owners` in the `code-ownership`
+plugin. CODEOWNERS matching needs `pathspec`, so run the build with web's venv `python3`
+(`pip install pathspec` anywhere else).
 
 The home of this skill is `.claude/skills/who-owns-that/` in Adam Pacholski's dotfiles. Each
 build also copies it to `_source/` in the published site, so if you have only the live site,
@@ -40,10 +45,15 @@ build also copies it to `_source/` in the published site, so if you have only th
    python3 -I <skill>/scripts/build.py --components <schema-42 file> --groups <groups file> --web /workspaces/web
    ```
 
-   It prints counts and the number of drift rows. Compare them with the
-   live site's numbers (the line under the search box). A large drop means an export went
+   It prints counts, the number of drift rows, file coverage and the `data.json` size. Compare
+   them with the live site's numbers (the line under the search box, and the code map page). A large drop means an export went
    wrong, so stop and investigate before publishing. Output goes to
    `~/.cache/who-owns-that/dist` unless you pass `--out`.
+
+   The People Directory stores only Slack channel ids. If the build prints
+   `Slack channels missing from slack_channels.json`, call the Slack MCP's `slack_read_channel`
+   with each id and `limit: 1` (its reply starts `Channel: #name (id)`) and add the names to
+   `scripts/slack_channels.json`. A team without a name still links to its channel.
 
 3. **Check the Yard login.** `yard whoami --json` must print an `email`. It reports a missing
    login in its output, not its exit code. If you're signed out, run
@@ -74,7 +84,13 @@ check its counts against an MCP-built site the first time.
 
 - `site/app.js` holds search scoring (`tokenScore`, `scoreDoc`, `KIND_BOOST`) and every page
   renderer. Routes are hash fragments (`#q=`, `#team=`, `#sub=`, `#teams`, `#drift`,
-  `#about`), so Yard needs no `--spa`.
+  `#paths`, `#path=`, `#about`), so Yard needs no `--spa`.
+- A query that looks like a path (has a `/` or a file extension) also searches code paths;
+  one that starts with `/` lists URL routes first. `pathMatches` and `rollup` in `app.js`
+  read `data.paths`, which stores each directory's most common owner set and only the files
+  that differ from it.
+- Django route patterns are relative to wherever their `urls.py` is included, and React route
+  objects are read line by line in `react_routes`. Both are approximations, labelled as such.
 - Attribute ids in `build.py` (`SUBCONCEPT_ATTRS` etc.) come from
   `listAssetsObjectTypeAttributes` for types 32, 33, 34 and 15. If a field goes missing after
   someone edits the schema, re-list the attributes and update the ids.

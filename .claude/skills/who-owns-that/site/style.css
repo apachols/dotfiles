@@ -8,6 +8,8 @@
   --line: #e2e2dc;
   --accent: #2f6fdf;
   --accent-soft: #e6eefc;
+  --accent-2: #b4277a;
+  --accent-2-soft: #fbe8f2;
   --warn: #9a5b00;
   --warn-soft: #fdf1dc;
   --good: #1f7a4d;
@@ -28,6 +30,8 @@
     --line: #2e333a;
     --accent: #7aa7ff;
     --accent-soft: #22324f;
+    --accent-2: #f08cc4;
+    --accent-2-soft: #42223a;
     --warn: #f0b45c;
     --warn-soft: #3a2c16;
     --good: #5fcf98;
@@ -51,8 +55,9 @@ code, .mono { font-family: var(--mono); font-size: .86em; }
 .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
 
 .masthead { border-bottom: 1px solid var(--line); background: var(--surface); }
-.masthead .wrap { display: flex; align-items: center; justify-content: space-between; height: 52px; gap: 12px; }
-.brand { font-weight: 700; color: var(--text); letter-spacing: -.01em; }
+.masthead .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 12px; }
+.brand { font-size: 1.5em; font-weight: 700; color: var(--text); letter-spacing: -.01em; white-space: nowrap; }
+.brand:hover { text-decoration: none; }
 .topnav { display: flex; gap: 18px; font-size: 14px; }
 .topnav a { color: var(--muted); }
 .topnav a:hover, .topnav a.active { color: var(--text); text-decoration: none; }
@@ -118,14 +123,18 @@ h1.page { font-size: 26px; letter-spacing: -.02em; margin: 18px 0 4px; }
   background: var(--surface-2); color: var(--muted);
 }
 .chip.retired { background: var(--warn-soft); color: var(--warn); }
+.chip.no-owner { cursor: help; }
+.chip.kind { background: var(--accent-2-soft); color: var(--accent-2); }
 .team-pill {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 10px; border-radius: 999px;
   background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 13.5px;
 }
 .team-pill:hover { text-decoration: none; filter: brightness(.97); }
-.slack { font-size: 13px; color: var(--muted); }
-mark { background: none; color: inherit; font-weight: 700; text-decoration: underline; text-decoration-color: var(--accent); text-underline-offset: 2px; }
+.slack, .assets-link { font-size: 13.5px; font-weight: 600; color: var(--accent-2); }
+.btn.accent-2 { color: var(--accent-2); border-color: var(--accent-2); }
+.btn.accent-2:hover { background: var(--accent-2-soft); }
+mark { background: none; color: inherit; font-weight: 700; text-decoration: underline; text-decoration-color: var(--accent-2); text-underline-offset: 2px; }
 
 .code-list { display: grid; gap: 2px; font-family: var(--mono); font-size: 13px; }
 .code-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--line); color: inherit; }
@@ -180,6 +189,15 @@ table.drift tr:last-child td { border-bottom: 0; }
 .flow b { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: 2px; }
 
 .more { margin-top: 8px; }
+
+.owners { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 8px; }
+.owner { display: inline-flex; align-items: center; gap: 4px; }
+.card .owners a { position: relative; z-index: 1; }
+.chip.src { font-family: var(--mono); font-size: 10.5px; }
+.chip.primary { background: var(--accent-soft); color: var(--accent); }
+table.drift .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.code-row .chip { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1.page.mono { font-size: 20px; overflow-wrap: anywhere; }
 .empty { color: var(--muted); padding: 18px 2px; }
 
 .footer { border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; padding: 18px 0 28px; }
@@ -187,6 +205,8 @@ table.drift tr:last-child td { border-bottom: 0; }
 @media (max-width: 600px) {
   .hero { padding-top: 22px; }
   .hero-label { font-size: 18px; }
+  .brand { font-size: 1.25em; }
+  .topnav { font-size: 13px; }
   .searchbox kbd { display: none; }
   .searchbox input { padding-right: 14px; }
   .card-owner { margin-left: 0; width: 100%; }
