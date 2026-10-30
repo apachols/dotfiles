@@ -160,3 +160,13 @@ m shell_plus --plain < "/path/to/scratchpad/verify.py"
 
 - Because the console parses line by line, keep top-level statements flat and do
   not put blank lines inside an indented block — a blank line ends the block.
+
+## Yard Best Practices
+
+- **Read Yard sites with the `yard` CLI, never WebFetch or plain `curl`.** A
+  site shared with "everyone" is open to everyone signed in through Cloudflare
+  Access, not to anonymous requests, so WebFetch and `curl` get a 401.
+  `yard curl --site <site> /path` sends my `yard login` token (add
+  `--navigate` for SPA routes); `yard pull` downloads the whole site and
+  `yard data get <file> --site <site>` reads a data file. If `yard whoami`
+  fails, ask me to run `yard login`, which needs a browser.
