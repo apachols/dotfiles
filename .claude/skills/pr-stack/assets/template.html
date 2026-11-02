@@ -1,0 +1,613 @@
+<title>__TITLE__</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a git lane diagram that climbs left to right like the stack itself, with one action bar pinned to the bottom. */
+:root {
+  --bg: #f3f5f7;
+  --panel: #ffffff;
+  --fg: #16202b;
+  --muted: #5d6b79;
+  --line: #c7d0d9;
+  --lane: #9fabb8;
+  --fresh: #0b7a75;      /* upstream commits the target does not have */
+  --fresh-soft: #d7f0ee;
+  --edit: #c2410c;       /* anything the viewer moved */
+  --edit-soft: #fde7da;
+  --target: #3b4cca;
+  --target-soft: #e4e7fb;
+  --shadow: 0 1px 2px rgba(22, 32, 43, .08), 0 4px 14px rgba(22, 32, 43, .06);
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --col: 158px;
+  --step: 44px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --panel: #19212a; --fg: #e4eaf0; --muted: #93a1af; --line: #2c3743; --lane: #566472;
+    --fresh: #3cc3b9; --fresh-soft: #123a38; --edit: #fb8a4c; --edit-soft: #43220f;
+    --target: #8f9bff; --target-soft: #22284f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #19212a; --fg: #e4eaf0; --muted: #93a1af; --line: #2c3743; --lane: #566472;
+  --fresh: #3cc3b9; --fresh-soft: #123a38; --edit: #fb8a4c; --edit-soft: #43220f;
+  --target: #8f9bff; --target-soft: #22284f; --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--body); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 0; max-width: 1280px; margin: 0 auto; display: grid; gap: 16px; }
+header { display: grid; gap: 10px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(22px, 3.4vw, 30px)/1.1 var(--display); margin: 0; text-wrap: balance; }
+h1 code { font: 600 .72em var(--mono); color: var(--target); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13px; }
+.meta b { color: var(--fg); font-weight: 500; }
+.meta code, .note code { font: 12px var(--mono); }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.controls label { font-weight: 500; }
+select { font: 14px var(--body); padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); max-width: 100%; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--muted); font-size: 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.note { border-left: 3px solid var(--line); padding: 4px 0 4px 10px; color: var(--muted); font-size: 13px; }
+.note.warn { border-color: var(--edit); }
+.banner { display: none; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 8px; background: var(--edit-soft); color: var(--fg); border: 1px dashed var(--edit); font-weight: 500; }
+.banner.on { display: flex; }
+.banner .pill { background: var(--edit); color: var(--panel); border-radius: 999px; padding: 1px 9px; font: 600 12px var(--mono); }
+
+.board { overflow-x: auto; border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+.inner { position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: var(--col); gap: 26px; align-items: end; padding: 24px 28px 22px; width: max-content; min-width: 100%; }
+svg.links { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.col { position: relative; display: flex; flex-direction: column; align-items: stretch; padding-bottom: calc(var(--rank) * var(--step)); z-index: 1; touch-action: none; }
+.lane { display: flex; flex-direction: column; align-items: center; position: relative; padding-bottom: 6px; }
+.lane::before { content: ""; position: absolute; top: 6px; bottom: 0; left: 50%; width: 2px; margin-left: -1px; background: var(--lane); }
+.arrow { width: 0; height: 0; border: 6px solid transparent; border-bottom: 9px solid var(--lane); border-top: 0; position: relative; margin-bottom: 4px; }
+.row { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 26px; padding: 2px 4px; background: none; border: 0; color: inherit; font: 12px var(--mono); cursor: pointer; border-radius: 6px; }
+.lane .row .hash { position: absolute; left: calc(50% + 12px); color: var(--muted); }
+.row .dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--lane); background: var(--panel); position: relative; z-index: 1; flex: none; }
+.row.merge .dot { border-radius: 3px; transform: rotate(45deg); width: 11px; height: 11px; }
+.row.fresh .dot { border-color: var(--fresh); }
+.row.fresh .hash { color: var(--fresh); }
+.row.taken .dot { background: var(--edit); border-color: var(--edit); }
+.row.taken .hash, .row.dropped .hash { color: var(--edit); }
+.row.dropped .dot { border-style: dashed; border-color: var(--edit); background: var(--edit-soft); }
+.row.dropped .hash { text-decoration: line-through; }
+.row.chosen .dot { box-shadow: 0 0 0 3px var(--panel), 0 0 0 5px var(--edit); }
+.row.own { cursor: default; }
+.row.own .dot { background: var(--target); border-color: var(--target); }
+.row:hover:not(.own) .dot, .row:focus-visible .dot { transform: scale(1.25); }
+.row.merge:hover:not(.own) .dot { transform: rotate(45deg) scale(1.25); }
+.row:focus-visible, .more:focus-visible, .toggle:focus-visible, .knob:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--target); outline-offset: 2px; }
+.more { position: relative; z-index: 1; margin: 3px 0; font: 500 11px var(--mono); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--fresh); color: var(--fresh); background: var(--fresh-soft); cursor: pointer; }
+
+.bubble { position: relative; border: 2px solid var(--fg); border-radius: 14px; background: var(--panel); padding: 8px 10px; display: grid; gap: 4px; cursor: default; }
+.bubble.collapsed { cursor: pointer; }
+.bubble .name { font: 600 15px/1.15 var(--display); }
+.bubble .sub { display: flex; justify-content: space-between; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--muted); }
+.bubble .sub a { color: inherit; }
+.toggle { font: 500 11px var(--mono); border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 1px 8px; cursor: pointer; }
+.bubble .list { display: grid; max-height: 260px; overflow-y: auto; margin: 2px -4px 0; border-top: 1px solid var(--line); padding-top: 4px; }
+.bubble .list .row { justify-content: flex-start; }
+.bubble .list .row .hash { color: var(--fg); }
+.bubble .fresh-count { color: var(--fresh); font-weight: 600; }
+.col.target .bubble { border-color: var(--target); background: var(--target-soft); }
+.col.target .bubble::after { content: "target"; position: absolute; top: -9px; right: 10px; font: 600 10px var(--mono); letter-spacing: .06em; text-transform: uppercase; background: var(--target); color: var(--panel); padding: 1px 7px; border-radius: 999px; }
+.col.edited .bubble { border-color: var(--edit); box-shadow: 0 0 0 4px var(--edit-soft); }
+.col.edited .bubble::before { content: attr(data-delta); position: absolute; top: -9px; left: 10px; font: 600 10px var(--mono); background: var(--edit); color: var(--panel); padding: 1px 7px; border-radius: 999px; }
+.col.edited .lane { background: repeating-linear-gradient(135deg, transparent 0 7px, var(--edit-soft) 7px 9px); border-radius: 8px; }
+.col.outside { opacity: .45; }
+.col.outside .bubble { border-style: dashed; }
+.bubble.anchor-chosen { outline: 2px solid var(--edit); outline-offset: 3px; }
+.knob { position: absolute; right: -11px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%; background: var(--panel); border: 2px solid var(--fg); cursor: grab; z-index: 3; display: grid; place-items: center; touch-action: none; padding: 0; }
+.knob::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--fg); }
+.list .knob { right: 2px; }
+.col.edited .knob { border-color: var(--edit); }
+.col.edited .knob::before { background: var(--edit); }
+body.dragging, body.dragging * { cursor: grabbing !important; user-select: none; }
+path.link { fill: none; stroke: var(--fg); stroke-width: 2; }
+path.link.edited { stroke: var(--edit); stroke-width: 2.5; stroke-dasharray: 7 4; }
+path.ghost { fill: none; stroke: var(--lane); stroke-width: 1.5; stroke-dasharray: 2 4; }
+marker path { fill: var(--fg); }
+marker#arrow-edit path { fill: var(--edit); }
+
+.tip { position: fixed; z-index: 30; max-width: 320px; background: var(--fg); color: var(--bg); border-radius: 8px; padding: 8px 10px; font-size: 12.5px; line-height: 1.4; pointer-events: none; box-shadow: var(--shadow); }
+.tip .t-head { font: 600 11px var(--mono); opacity: .75; margin-bottom: 3px; }
+.tip .t-title { font-weight: 600; }
+
+.bar { position: sticky; bottom: 0; z-index: 20; margin-top: 4px; background: var(--panel); border-top: 1px solid var(--line); box-shadow: 0 -6px 18px rgba(0,0,0,.06); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.bar-in { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; max-width: 1280px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 20px; align-items: center; }
+.plan { min-width: 0; display: grid; gap: 3px; font-size: 13px; }
+.plan .empty { color: var(--muted); }
+.plan li { list-style: none; }
+.plan ul { margin: 0; padding: 0; display: grid; gap: 2px; }
+.plan code { font: 12px var(--mono); }
+.plan .status { color: var(--muted); font-size: 12px; }
+.plan .status.err { color: var(--edit); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+button.btn { font: 600 14px var(--body); padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); cursor: pointer; }
+button.btn.primary { background: var(--edit); border-color: var(--edit); color: var(--panel); }
+button.btn:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 640px) { .bar-in { grid-template-columns: 1fr; } .actions { justify-content: stretch; } .actions .btn { flex: 1; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow"></div>
+    <h1 id="headline"></h1>
+    <div class="meta" id="meta"></div>
+    <div class="controls">
+      <label for="target-select">Branch to rebase</label>
+      <select id="target-select"></select>
+      <div class="legend">
+        <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="none" stroke="var(--fresh)" stroke-width="2"/></svg>new upstream, not in target</span>
+        <span><svg width="14" height="14"><circle cx="7" cy="7" r="5" fill="var(--edit)"/></svg>moved by you</span>
+        <span><svg width="14" height="14"><rect x="3" y="3" width="8" height="8" transform="rotate(45 7 7)" fill="none" stroke="var(--lane)" stroke-width="2"/></svg>merge commit</span>
+      </div>
+    </div>
+    <div id="notes"></div>
+  </header>
+  <div class="banner" id="banner" role="status"></div>
+  <div class="board" id="board"><div class="inner" id="inner"></div></div>
+  <p class="note">Drag a branch's knob up or down its lane, or click a commit, to choose how much of that branch the rebase pulls in. Open a bubble to reach commits it already includes. Hover any commit or bubble for details.</p>
+</div>
+<div class="bar"><div class="bar-in">
+  <div class="plan" id="plan"></div>
+  <div class="actions">
+    <button class="btn" id="reset" type="button">Reset</button>
+    <button class="btn" id="copy" type="button">Copy request</button>
+    <button class="btn primary" id="rebase" type="button">Rebase</button>
+  </div>
+</div></div>
+<div class="tip" id="tip" hidden></div>
+
+<script id="stack-data" type="application/json">__STACK_JSON__</script>
+<script>
+const DATA = JSON.parse(document.getElementById("stack-data").textContent);
+const C = DATA.commits;
+const state = { target: DATA.target, chosen: {}, expanded: new Set(), morePending: new Set() };
+const $ = (id) => document.getElementById(id);
+const inner = $("inner");
+let commentsApi = null;
+let sendState = "off";
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+const nick = (b) => DATA.branches[b].nickname || b;
+const prLabel = (b) => DATA.branches[b].pr ? `#${DATA.branches[b].pr.number}` : b;
+const short = (sha) => (C[sha] ? C[sha].short : sha.slice(0, 11));
+const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
+const fmtDate = (iso) => new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+const rels = () => DATA.relations[state.target];
+const rel = (b) => rels()[b];
+const inStack = (b) => b in rels();
+const members = () => DATA.order.filter((b) => inStack(b) && b !== state.target);
+const listOf = (b) => [...rel(b).included, ...rel(b).pending];
+const currentIdx = (b) => rel(b).included.length - 1;
+const chosenMap = () => (state.chosen[state.target] ||= {});
+const chosenIdx = (b) => (b in chosenMap() ? chosenMap()[b] : currentIdx(b));
+const changes = () => members().filter((b) => chosenIdx(b) !== currentIdx(b));
+
+function setChosen(b, idx) {
+  const max = listOf(b).length - 1;
+  idx = Math.max(0, Math.min(max, idx));
+  if (idx === currentIdx(b)) delete chosenMap()[b];
+  else chosenMap()[b] = idx;
+  if (idx < currentIdx(b) && !state.expanded.has(b)) { state.expanded.add(b); render(); return; }
+  if (idx > currentIdx(b) && !visiblePending(b).has(idx - rel(b).included.length)) { state.morePending.add(b); render(); return; }
+  refresh();
+}
+
+function visiblePending(b) {
+  const n = rel(b).pending.length;
+  const shown = new Set();
+  const all = state.morePending.has(b) || n <= 6;
+  for (let k = 0; k < n; k++) if (all || k >= n - 3) shown.add(k);
+  return shown;
+}
+
+/* ---------- tooltips ---------- */
+const tip = $("tip");
+function showTip(target, build) {
+  tip.replaceChildren();
+  build(tip);
+  tip.hidden = false;
+  const r = target.getBoundingClientRect();
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = r.right + 10, y = r.top + r.height / 2 - h / 2;
+  if (x + w > innerWidth - 8) x = Math.max(8, r.left - w - 10);
+  y = Math.max(8, Math.min(innerHeight - h - 8, y));
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+function commitTip(sha) {
+  return (t) => {
+    const c = C[sha];
+    t.append(el("div", "t-head", `${c.short} · ${fmtDate(c.date)}`), el("div", "t-title", c.subject), el("div", "", c.author + (c.merge ? " · merge commit" : "")));
+  };
+}
+function branchTip(b) {
+  return (t) => {
+    const info = DATA.branches[b];
+    const head = info.pr ? `#${info.pr.number} · ${info.pr.author}${info.pr.draft ? " · draft" : ""}` : "default branch";
+    t.append(el("div", "t-head", head), el("div", "t-title", info.pr ? info.pr.title : b));
+    if (info.summary) t.append(el("div", "", info.summary));
+    t.append(el("div", "t-head", `${b} · ${info.source}`));
+  };
+}
+function hover(node, build) {
+  node.addEventListener("pointerenter", (e) => { if (e.pointerType !== "touch" && !document.body.classList.contains("dragging")) showTip(node, build); });
+  node.addEventListener("pointerleave", hideTip);
+  node.addEventListener("focus", () => showTip(node, build));
+  node.addEventListener("blur", hideTip);
+}
+
+/* ---------- build ---------- */
+function rowFor(b, idx, sha, kind) {
+  const c = C[sha];
+  const row = el("button", "row " + kind);
+  row.type = "button";
+  row.dataset.idx = idx;
+  if (c.merge) row.classList.add("merge");
+  row.append(el("span", "dot"), el("span", "hash", c.short));
+  row.setAttribute("aria-label", `${c.short} ${c.subject}`);
+  hover(row, commitTip(sha));
+  if (kind !== "own") row.addEventListener("click", () => setChosen(b, idx));
+  return row;
+}
+
+function buildColumn(b, rank) {
+  const col = el("section", "col");
+  col.dataset.branch = b;
+  col.style.setProperty("--rank", rank);
+  const info = DATA.branches[b];
+  const isTarget = b === state.target;
+  const bubble = el("div", "bubble");
+  const name = el("div", "name", nick(b));
+  const sub = el("div", "sub");
+  if (info.pr) {
+    const a = el("a", "", `#${info.pr.number}`);
+    a.href = info.pr.url; a.target = "_blank"; a.rel = "noopener";
+    sub.append(a);
+  } else sub.append(el("span", "", b));
+  bubble.append(name, sub);
+  hover(name, branchTip(b));
+
+  if (!inStack(b)) {
+    col.classList.add("outside");
+    sub.append(el("span", "", "not in target"));
+    col.append(bubble);
+    return col;
+  }
+
+  const lane = el("div", "lane");
+  lane.append(el("div", "arrow"));
+  const r = rel(b);
+  if (isTarget) {
+    col.classList.add("target");
+    const own = r.included;
+    const many = own.length > 6 && !state.morePending.has(b);
+    for (let k = own.length - 1; k >= 0; k--) {
+      if (many && k < own.length - 3) continue;
+      lane.append(rowFor(b, k, own[k], "own"));
+    }
+    if (many) lane.append(moreButton(b, own.length - 3, "older"));
+    sub.append(el("span", "", plural(own.length, "commit")));
+    col.append(lane, bubble);
+    return col;
+  }
+
+  const shown = visiblePending(b);
+  const base = r.included.length;
+  for (let k = r.pending.length - 1; k >= 0; k--) {
+    if (!shown.has(k)) continue;
+    lane.append(rowFor(b, base + k, r.pending[k], "fresh"));
+  }
+  const hidden = r.pending.length - shown.size;
+  if (hidden > 0) lane.append(moreButton(b, hidden, "new"));
+  if (r.pendingTotal > r.pending.length) lane.prepend(el("div", "more", `${r.pendingTotal - r.pending.length} newer not loaded`));
+
+  const meta = el("span", "");
+  if (r.pendingTotal) meta.append(el("span", "fresh-count", `+${r.pendingTotal} new`), " · ");
+  meta.append(b === DATA.defaultBranch ? "fork point" : plural(base, "commit"));
+  sub.append(meta);
+
+  const expanded = state.expanded.has(b);
+  if (base > 1 || b !== DATA.defaultBranch) {
+    const tog = el("button", "toggle", expanded ? "close" : "open");
+    tog.type = "button";
+    tog.setAttribute("aria-expanded", String(expanded));
+    tog.addEventListener("click", (e) => { e.stopPropagation(); expanded ? state.expanded.delete(b) : state.expanded.add(b); render(); });
+    bubble.append(tog);
+  }
+  if (expanded) {
+    const list = el("div", "list");
+    for (let k = base - 1; k >= 0; k--) list.append(rowFor(b, k, r.included[k], "inc"));
+    list.addEventListener("scroll", drawLinks, { passive: true });
+    bubble.append(list);
+  } else {
+    bubble.classList.add("collapsed");
+    bubble.dataset.idx = base - 1;
+    bubble.addEventListener("click", () => setChosen(b, base - 1));
+  }
+  const knob = el("button", "knob");
+  knob.type = "button";
+  knob.setAttribute("aria-label", `Move ${nick(b)} link. Arrow keys move it one commit.`);
+  wireKnob(col, knob, b);
+  col.append(lane, bubble);
+  col._knob = knob;
+  return col;
+}
+
+function moreButton(b, n, word) {
+  const m = el("button", "more", `+${n} ${word}`);
+  m.type = "button";
+  m.addEventListener("click", () => { state.morePending.add(b); render(); });
+  return m;
+}
+
+function anchorFor(col, idx) {
+  return col.querySelector(`.row[data-idx="${idx}"]`) || col.querySelector(`.bubble[data-idx="${idx}"]`) || col.querySelector(".bubble");
+}
+
+/* ---------- drag ---------- */
+function wireKnob(col, knob, b) {
+  let drag = false;
+  knob.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    drag = true;
+    hideTip();
+    col.setPointerCapture(e.pointerId);
+    document.body.classList.add("dragging");
+  });
+  col.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    let best = null, dist = Infinity;
+    col.querySelectorAll(".row[data-idx], .bubble[data-idx]").forEach((n) => {
+      const r = n.getBoundingClientRect();
+      if (r.height === 0) return;
+      const d = Math.abs(r.top + r.height / 2 - e.clientY);
+      if (d < dist) { dist = d; best = n; }
+    });
+    if (best && +best.dataset.idx !== chosenIdx(b)) setChosen(b, +best.dataset.idx);
+  });
+  const end = () => { if (drag) { drag = false; document.body.classList.remove("dragging"); } };
+  col.addEventListener("pointerup", end);
+  col.addEventListener("pointercancel", end);
+  knob.addEventListener("keydown", (e) => {
+    const step = e.key === "ArrowUp" ? 1 : e.key === "ArrowDown" ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    setChosen(b, chosenIdx(b) + step);
+    requestAnimationFrame(() => document.querySelector(`.col[data-branch="${CSS.escape(b)}"] .knob`)?.focus());
+  });
+}
+
+/* ---------- state paint ---------- */
+function render() {
+  hideTip();
+  inner.replaceChildren();
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("links");
+  svg.innerHTML = '<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker><marker id="arrow-edit" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z"/></marker></defs><g id="ghosts"></g><g id="paths"></g>';
+  inner.append(svg);
+  DATA.order.forEach((b, i) => inner.append(buildColumn(b, i)));
+  refresh();
+}
+
+function refresh() {
+  for (const b of members()) {
+    const col = inner.querySelector(`.col[data-branch="${CSS.escape(b)}"]`);
+    if (!col) continue;
+    const cur = currentIdx(b), ch = chosenIdx(b);
+    col.classList.toggle("edited", cur !== ch);
+    col.querySelector(".bubble").dataset.delta = ch > cur ? `+${ch - cur}` : `${ch - cur}`;
+    col.querySelectorAll(".row[data-idx]").forEach((row) => {
+      const i = +row.dataset.idx;
+      row.classList.toggle("chosen", i === ch && cur !== ch);
+      row.classList.toggle("taken", i > cur && i <= ch);
+      row.classList.toggle("dropped", i <= cur && i > ch);
+    });
+    const anchor = anchorFor(col, ch);
+    col.querySelectorAll(".anchor-chosen").forEach((n) => n.classList.remove("anchor-chosen"));
+    if (anchor.classList.contains("bubble") && cur !== ch) anchor.classList.add("anchor-chosen");
+    if (col._knob.parentNode !== anchor) anchor.append(col._knob);
+  }
+  drawLinks();
+  paintPlan();
+}
+
+function rectIn(node) {
+  const a = node.getBoundingClientRect(), o = inner.getBoundingClientRect();
+  return { left: a.left - o.left, right: a.right - o.left, top: a.top - o.top, bottom: a.bottom - o.top, width: a.width, height: a.height };
+}
+
+function linkPath(from, to, x2) {
+  const x1 = from.right + 11, y1 = from.top + from.height / 2;
+  if (y1 > to.bottom + 18) {
+    const r = Math.min(12, (x2 - x1) / 2);
+    return `M${x1},${y1} H${x2 - r} Q${x2},${y1} ${x2},${y1 - r} V${to.bottom + 2}`;
+  }
+  const xm = to.left - 14, ym = Math.max(to.top + 14, Math.min(to.bottom - 14, y1));
+  return `M${x1},${y1} H${xm} V${ym} H${to.left - 2}`;
+}
+
+function drawLinks() {
+  const paths = inner.querySelector("#paths"), ghosts = inner.querySelector("#ghosts");
+  if (!paths) return;
+  const svg = inner.querySelector("svg.links");
+  svg.setAttribute("width", inner.scrollWidth);
+  svg.setAttribute("height", inner.scrollHeight);
+  paths.replaceChildren(); ghosts.replaceChildren();
+  const byChild = {};
+  for (const b of members()) (byChild[rel(b).child] ||= []).push(b);
+  const ns = "http://www.w3.org/2000/svg";
+  for (const [child, kids] of Object.entries(byChild)) {
+    const childCol = inner.querySelector(`.col[data-branch="${CSS.escape(child)}"]`);
+    if (!childCol) continue;
+    const to = rectIn(childCol.querySelector(".bubble"));
+    kids.forEach((b, k) => {
+      const col = inner.querySelector(`.col[data-branch="${CSS.escape(b)}"]`);
+      const x2 = to.left + (to.width * (k + 1)) / (kids.length + 1);
+      const cur = currentIdx(b), ch = chosenIdx(b);
+      const p = document.createElementNS(ns, "path");
+      p.setAttribute("d", linkPath(rectIn(anchorFor(col, ch)), to, x2));
+      p.setAttribute("class", "link" + (cur !== ch ? " edited" : ""));
+      p.setAttribute("marker-end", cur !== ch ? "url(#arrow-edit)" : "url(#arrow)");
+      paths.append(p);
+      if (cur !== ch) {
+        const g = document.createElementNS(ns, "path");
+        g.setAttribute("d", linkPath(rectIn(anchorFor(col, cur)), to, x2));
+        g.setAttribute("class", "ghost");
+        ghosts.append(g);
+      }
+    });
+  }
+}
+
+/* ---------- plan + request ---------- */
+function describe(b) {
+  const list = listOf(b), cur = currentIdx(b), ch = chosenIdx(b);
+  const n = Math.abs(ch - cur);
+  const verb = ch > cur ? `add ${plural(n, "commit")}` : `drop ${plural(n, "commit")}`;
+  return { verb, from: list[cur], to: list[ch], moved: ch > cur ? list.slice(cur + 1, ch + 1) : list.slice(ch + 1, cur + 1) };
+}
+
+function requestText() {
+  const t = state.target, info = DATA.branches[t];
+  const out = [
+    "pr-stack rebase request",
+    `repo: ${DATA.repo} at ${DATA.repoPath}`,
+    `target: ${t} (${prLabel(t)} ${nick(t)}), tip ${DATA.branches[t].tip.slice(0, 11)} (${info.source})`,
+    `checked out on disk: ${DATA.checkedOut || "(detached)"}`,
+    `stack data from: ${DATA.generatedAt}`,
+    "changes:",
+  ];
+  for (const b of changes()) {
+    const d = describe(b);
+    out.push(`- ${b} (${prLabel(b)} ${nick(b)}): ${d.verb}, ${short(d.from)} -> ${short(d.to)} (full ${d.to})`);
+    for (const sha of d.moved.slice().reverse()) out.push(`    ${short(sha)} ${C[sha].subject}`);
+  }
+  const same = members().filter((b) => !changes().includes(b));
+  if (same.length) out.push("unchanged: " + same.map((b) => `${nick(b)} @ ${short(listOf(b)[currentIdx(b)])}`).join(", "));
+  return out.join("\n");
+}
+
+function paintPlan() {
+  const ch = changes();
+  const plan = $("plan");
+  plan.replaceChildren();
+  const banner = $("banner");
+  banner.classList.toggle("on", ch.length > 0);
+  banner.replaceChildren();
+  if (ch.length) {
+    banner.append(el("span", "pill", `${ch.length} edited`), `Not applied yet. ${ch.map(nick).join(", ")} ${ch.length === 1 ? "has" : "have"} a new link into ${nick(state.target)}.`);
+    const ul = el("ul");
+    for (const b of ch) {
+      const d = describe(b);
+      const li = el("li");
+      li.append(el("b", "", nick(b) + ": "), `${d.verb} `, el("code", "", `${short(d.from)} → ${short(d.to)}`));
+      ul.append(li);
+    }
+    plan.append(ul);
+  } else {
+    plan.append(el("div", "empty", `No changes. ${nick(state.target)} matches what is on disk.`));
+  }
+  const where = state.target === DATA.checkedOut ? `in place on ${state.target}` : `in a new worktree on ${state.target}-rebase-<date>`;
+  const status = el("div", "status", `Runs ${where}. Nothing is pushed.`);
+  if (sendState !== "available") {
+    status.classList.add("err");
+    status.textContent = {
+      writers_only: "Only editors of this page can send the rebase to Claude. Copy the request instead.",
+      no_session: "No Claude session is watching this page right now. Copy the request into the session instead.",
+      off: "Sending to Claude isn't available in this view. Copy the request into the session instead.",
+    }[sendState] || "Sending to Claude isn't available in this view. Copy the request into the session instead.";
+  }
+  plan.append(status);
+  $("rebase").textContent = `Rebase ${nick(state.target)}`;
+  $("rebase").disabled = ch.length === 0 || sendState !== "available";
+  $("copy").disabled = ch.length === 0;
+  $("reset").disabled = ch.length === 0;
+}
+
+function flash(text, err) {
+  const s = $("plan").querySelector(".status");
+  if (s) { s.textContent = text; s.classList.toggle("err", !!err); }
+}
+
+$("reset").addEventListener("click", () => { state.chosen[state.target] = {}; refresh(); });
+$("copy").addEventListener("click", () => {
+  const text = requestText();
+  navigator.clipboard.writeText(text).then(() => flash("Copied. Paste it into the Claude session."), () => flash("Copy was blocked. Select the request text manually: " + text, true));
+});
+$("rebase").addEventListener("click", async () => {
+  if (!commentsApi) return;
+  const btn = $("rebase");
+  btn.disabled = true;
+  flash("Sending to Claude…");
+  try {
+    const anchor = await commentsApi.anchorFor($("plan"));
+    await commentsApi.sendToClaude({ anchor, text: requestText() });
+    flash("Sent. Claude replies in the comment thread and in the session.");
+  } catch (e) {
+    flash(`Couldn't send (${e && e.code ? e.code : "error"}). Copy the request instead.`, true);
+    btn.disabled = false;
+  }
+});
+
+/* ---------- header ---------- */
+function paintHeader() {
+  const t = state.target;
+  $("eyebrow").textContent = `PR stack · ${DATA.repo}`;
+  const h = $("headline");
+  h.replaceChildren(`${nick(DATA.target)} stack `, el("code", "", prLabel(DATA.target)));
+  const meta = $("meta");
+  meta.replaceChildren();
+  const add = (label, value) => { const s = el("span"); s.append(label + " ", el("b", "", value)); meta.append(s); };
+  add("Checked out:", DATA.checkedOut || "(detached)");
+  add("Rebasing:", t);
+  add("Data from:", fmtDate(DATA.generatedAt));
+  const notes = $("notes");
+  notes.replaceChildren();
+  const d = DATA.targetDivergence;
+  if (d && t === DATA.target) {
+    const n = el("div", "note warn");
+    n.append(`Local ${DATA.target} and origin have diverged: ${d.ahead} commits only here, ${d.behind} only on origin (`, el("code", "", d.originTip), "). The diagram uses the local branch.");
+    notes.append(n);
+  }
+}
+
+const sel = $("target-select");
+for (const b of DATA.order) {
+  if (b === DATA.defaultBranch) continue;
+  const o = el("option", "", `${nick(b)} · ${prLabel(b)}`);
+  o.value = b;
+  sel.append(o);
+}
+sel.value = state.target;
+sel.addEventListener("change", () => { state.target = sel.value; paintHeader(); render(); });
+
+addEventListener("resize", drawLinks);
+$("board").addEventListener("scroll", hideTip, { passive: true });
+paintHeader();
+render();
+if (document.fonts) document.fonts.ready.then(drawLinks);
+
+(async () => {
+  try {
+    commentsApi = await window.claude?.use?.("comments");
+    if (commentsApi) sendState = await commentsApi.canSendToClaude();
+  } catch (e) { sendState = "off"; }
+  paintPlan();
+})();
+</script>

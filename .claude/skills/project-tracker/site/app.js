@@ -181,6 +181,11 @@ function renderDoc(docId) {
 function render() {
   const view = document.getElementById("view");
   const hash = decodeURIComponent(location.hash.slice(1));
+  for (const link of document.querySelectorAll(".nav a")) {
+    link.classList.toggle("is-active", (link.getAttribute("href") === "#questions") === (hash === "questions"));
+  }
+  if (hash === "questions") return Questions.mount(view);
+  if (!DATA) return;
   const doc = hash.startsWith("doc=") ? hash.slice(4) : null;
   view.innerHTML = doc ? renderDoc(doc) : renderSources();
 }
@@ -206,6 +211,7 @@ window.addEventListener("hashchange", () => {
   window.scrollTo(0, 0);
 });
 
+render();
 fetch("data.json", { cache: "no-store" })
   .then((r) => r.json())
   .then((data) => {
@@ -218,5 +224,6 @@ fetch("data.json", { cache: "no-store" })
     render();
   })
   .catch((err) => {
+    if (location.hash === "#questions") return;
     document.getElementById("view").innerHTML = `<p class="empty">Could not load data.json: ${esc(err)}</p>`;
   });
