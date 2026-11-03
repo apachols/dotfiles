@@ -94,13 +94,17 @@ invocation, even when running several cases. Note the UTC start time for `run.js
 
 ## 5. Execute each test case
 
-Before touching the browser, read the Rover site interaction guide in the `web` checkout:
+Before touching the browser, load the Rover site interaction guide. It lives in the
+`rover-site-interaction` plugin (rover-plugins marketplace), not in the `web` checkout. Invoke it
+with the Skill tool (`rover-site-interaction:rover-site-interaction`). If it isn't in your skill
+list, read its `SKILL.md` from the plugin install instead:
 
 ```bash
-cat .claude/skills/rover-site-interaction/SKILL.md
+find ~/.claude/plugins /run/coder/claude/plugins -path '*rover-site-interaction/skills/rover-site-interaction/SKILL.md' 2>/dev/null | head -1 | xargs cat
 ```
 
-It carries the credentials, fixture templates and entrypoints, service-type slugs, URL patterns,
+If neither turns it up, stop and tell the user the plugin isn't installed. Don't fall back to
+guessing. It carries the credentials, fixture templates and entrypoints, service-type slugs, URL patterns,
 and modal/cookie quirks. Read it in full — do not guess a fixture slug or a password. Then read
 [Rover webapp Playwright testing best practices](#rover-webapp-playwright-testing-best-practices)
 below for the `execute-test-case`-specific rules that layer on top of it.
@@ -261,6 +265,22 @@ an admin bar above it offers staff-only options such as "go to conversation admi
   without signing in again.
 - Crop screenshots to the user-facing element when the admin bar would make it unclear whose
   view the shot shows.
+
+### Switching between requester and provider
+
+When a case moves from one side of a booking to the other (say, the owner requests, then the
+sitter accepts), or an instruction says "Switch User to Provider/Requester":
+
+1. **Conversation page (preferred).** Open the booking's conversation as the current user and
+   click **Switch User** in the left side pane. It switches the impersonation to the other party.
+2. **People admin (backup).** Open the person in the people admin list
+   (`/admin/people/person/`) and impersonate them from there. Every booking-related admin page
+   (stay, conversation, request, order, recurring billing relationship, and so on) links to the
+   requester and provider, so it's a few clicks from wherever you are.
+
+Don't go back to the fixture to switch. In particular, avoid the **View As Provider** /
+**View As Requester** rows on the fixture builds page (`/dev/fixtures/builds/<id>`). They're
+copy-link controls that do nothing when clicked in Playwright, and they're unreliable by hand too.
 
 ### Feature flags
 

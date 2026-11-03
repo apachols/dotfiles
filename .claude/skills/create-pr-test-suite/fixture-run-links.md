@@ -64,7 +64,9 @@ The link builds the fixture and enters it, so one instruction replaces "build th
 ```
 
 - Describe the scenario in words on the instruction line. The URL carries the values.
-- Every visit to a `/run` link builds a new fixture. To act as another entity on the same build,
-  send the tester to the latest build and name the entry point:
-  `http://rover.local:8001/dev/fixtures/builds/` => latest build => `view_as_provider`.
+- Every visit to a `/run` link builds a new fixture. To act as the other party on the same build,
+  don't send the tester back to the fixture. Write "Switch User to Provider" (or "to Requester")
+  as its own instruction; testers know it means the **Switch User** link in the conversation
+  page's left pane. Don't point at the entry-point links on `/dev/fixtures/builds/`: they're
+  unreliable.
 - For "same fixture as Test Case 1", repeat the full link so each case runs on its own.

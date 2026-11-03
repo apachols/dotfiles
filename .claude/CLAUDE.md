@@ -110,6 +110,13 @@ When you are working in the `web` repo, please strictly follow these conventions
 
 The `web` repository is FULL of files with common / repeated / duplicate file names - forms.py, models.py, etc. Always print file names namespaced to the django app folder they are in: seo/models.py, api/current/serializers/models.py.
 
+### TypeScript Type Checking
+
+When TypeScript type check errors show up in files unrelated to the current PR,
+the first troubleshooting step is to `cd ./src/frontend` and run `pnpm i`. Stale
+or out-of-sync frontend dependencies usually cause these errors, and reinstalling
+resolves them.
+
 ### Mypy Type Checking
 
 When you need to run mypy type checking on python changes, some of the available info on how to run is outdated.

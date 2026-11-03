@@ -91,6 +91,7 @@ Note that the last two break the pattern on purpose — they're the cases where 
 - Link to admin **list** pages — record-specific edit page URLs need an id, and the test records don't exist yet
 - Link fixture steps to a `/run` URL with the options and entry point filled in, so one click builds the fixture and signs the tester in. `fixture-run-links.md` has the recipe
 - It's okay to roll a common workflow, like "book a stay", into a single line with a description instead of four steps and four links
+- To change sides mid-case, write "Switch User to Provider" or "Switch User to Requester" with no link or detail line. Testers know it's the conversation page's **Switch User** link
 - Never list "run these unit tests" as a manual step — CI does that
 
 ### Feature flags: set, never unset
