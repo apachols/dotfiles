@@ -63,7 +63,9 @@ this session as an artifact comment.
 The page posts a comment that starts with `pr-stack rebase request`. It names
 the repo path, the target and its tip, what was checked out, and one line per
 moved branch: `add N commits` or `drop N commits`, `from -> to`, then the
-commits involved. Treat it as the user's instruction for this rebase only.
+commits involved, followed by numbered steps so the same text works pasted
+into someone else's agent ("Copy request"). Treat it as the user's instruction
+for this rebase only, and follow the steps below rather than the pasted ones.
 
 1. **Check it is still current.** Re-run `stack.py` for the target. If the
    target's tip or a `from` commit no longer matches, stop. Rebuild the page,

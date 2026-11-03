@@ -343,6 +343,7 @@ def main():
                     "title": prs[b]["title"],
                     "url": prs[b]["url"],
                     "author": prs[b]["author"]["login"],
+                    "authorName": prs[b]["author"].get("name") or "",
                     "base": prs[b]["baseRefName"],
                     "draft": prs[b]["isDraft"],
                     "bodyExcerpt": (prs[b]["body"] or "")[:1200],

@@ -88,6 +88,7 @@ svg.links { position: absolute; inset: 0; pointer-events: none; overflow: visibl
 .bubble { position: relative; border: 2px solid var(--fg); border-radius: 14px; background: var(--panel); padding: 8px 10px; display: grid; gap: 4px; cursor: default; }
 .bubble.collapsed { cursor: pointer; }
 .bubble .name { font: 600 15px/1.15 var(--display); }
+.bubble .author { font-size: 12px; color: var(--muted); margin-top: -2px; overflow-wrap: anywhere; }
 .bubble .sub { display: flex; justify-content: space-between; align-items: center; gap: 6px; font: 11px var(--mono); color: var(--muted); }
 .bubble .sub a { color: inherit; }
 .toggle { font: 500 11px var(--mono); border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 999px; padding: 1px 8px; cursor: pointer; }
@@ -280,7 +281,9 @@ function buildColumn(b, rank) {
     a.href = info.pr.url; a.target = "_blank"; a.rel = "noopener";
     sub.append(a);
   } else sub.append(el("span", "", b));
-  bubble.append(name, sub);
+  bubble.append(name);
+  if (info.pr) bubble.append(el("div", "author", info.pr.authorName || info.pr.author));
+  bubble.append(sub);
   hover(name, branchTip(b));
 
   if (!inStack(b)) {
@@ -483,23 +486,58 @@ function describe(b) {
   return { verb, from: list[cur], to: list[ch], moved: ch > cur ? list.slice(cur + 1, ch + 1) : list.slice(ch + 1, cur + 1) };
 }
 
+// The copied text has to work for someone else's agent that has never seen this page or the pr-stack skill.
 function requestText() {
   const t = state.target, info = DATA.branches[t];
+  const ch = changes();
+  const hasDrop = ch.some((b) => chosenIdx(b) < currentIdx(b));
+  const own = rel(t).included;
+  const mergeBuilt = own.some((sha) => C[sha] && C[sha].merge);
+  const head = (b) => `${nick(b)} (${DATA.branches[b].pr ? `PR ${prLabel(b)}, ` : ""}branch ${b})`;
   const out = [
     "pr-stack rebase request",
-    `repo: ${DATA.repo} at ${DATA.repoPath}`,
-    `target: ${t} (${prLabel(t)} ${nick(t)}), tip ${DATA.branches[t].tip.slice(0, 11)} (${info.source})`,
-    `checked out on disk: ${DATA.checkedOut || "(detached)"}`,
-    `stack data from: ${DATA.generatedAt}`,
-    "changes:",
+    "",
+    `Please update the git branch ${t} so it picks up newer commits from the PRs it is stacked on. I chose the changes below on a pr-stack diagram of this stack.`,
+    "",
+    "## Where",
+    `- Repo: ${DATA.repo} (path on the machine that made this request: ${DATA.repoPath})`,
+    `- Branch to update: ${t}, ${head(t)}`,
+    `- Expected tip before the update: ${info.tip.slice(0, 11)} (from ${info.source === "local" ? "the local branch" : `origin/${t}`})`,
+    `- Checked out when the diagram was made: ${DATA.checkedOut || "(detached)"}`,
+    `- Diagram data taken: ${DATA.generatedAt}`,
+    "",
+    "## Changes",
   ];
-  for (const b of changes()) {
+  ch.forEach((b, i) => {
     const d = describe(b);
-    out.push(`- ${b} (${prLabel(b)} ${nick(b)}): ${d.verb}, ${short(d.from)} -> ${short(d.to)} (full ${d.to})`);
-    for (const sha of d.moved.slice().reverse()) out.push(`    ${short(sha)} ${C[sha].subject}`);
+    out.push(`${i + 1}. ${head(b)}: ${d.verb}, moving from ${short(d.from)} to ${short(d.to)} (full sha ${d.to})`);
+    // The default branch can move by hundreds of commits; the sha range is enough there.
+    if (b !== DATA.defaultBranch) for (const sha of d.moved.slice().reverse()) out.push(`   - ${short(sha)} ${C[sha].subject}`);
+  });
+  const same = members().filter((b) => !ch.includes(b));
+  if (same.length) out.push("", "Leave these where they are: " + same.map((b) => `${nick(b)} @ ${short(listOf(b)[currentIdx(b)])}`).join(", "));
+  out.push(
+    "",
+    "## Steps",
+    `1. In your clone of ${DATA.repo}, run \`git fetch origin\`.`,
+    `2. Check that ${t} is still at ${info.tip.slice(0, 11)} and that every "moving to" commit above exists. If anything differs, stop and tell me: the stack moved since I made this request.`,
+    `3. Don't touch a checkout with uncommitted work. If ${t} is checked out with a clean \`git status\`, work there and first save a backup: \`git branch ${t}-backup-$(date +%Y%m%d-%H%M)\`. Otherwise make a worktree on a new branch: \`git worktree add ../${DATA.repo.split("/").pop()}-rebase -b ${t}-rebase-$(date +%Y%m%d) ${info.tip.slice(0, 11)}\`.`,
+  );
+  if (hasDrop) {
+    out.push(
+      "4. This plan drops commits, so rebuild the branch instead of merging: reset it to the lowest branch's new commit, cherry-pick each higher branch's commits up to its new commit (skip any already applied; `git cherry` shows them), then cherry-pick the branch's own commits:",
+      ...own.filter((sha) => !(C[sha] && C[sha].merge)).map((sha) => `   - ${short(sha)} ${C[sha] ? C[sha].subject : ""}`),
+    );
+  } else if (mergeBuilt) {
+    out.push(`4. The branch already merges its stack branches in, so keep doing that. For each change above, in order: \`git merge --no-ff <full sha> -m "Merge <branch> @ <short sha> into ${t}"\`.`);
+  } else {
+    out.push(`4. The branch has linear history, so rebase it: \`git rebase --onto <new commit> <old commit>\` for the lowest change above, then repeat for any higher ones. Commits already applied are skipped automatically.`);
   }
-  const same = members().filter((b) => !changes().includes(b));
-  if (same.length) out.push("unchanged: " + same.map((b) => `${nick(b)} @ ${short(listOf(b)[currentIdx(b)])}`).join(", "));
+  out.push(
+    "5. On a conflict, resolve it only if the answer is mechanical (unrelated imports, a lockfile). Otherwise abort (`git merge --abort`, `git rebase --abort` or `git cherry-pick --abort`) and tell me the files and the commit that conflicted.",
+    "6. Check the result: `git log --oneline --first-parent -15`, and `git merge-base --is-ancestor <sha> HEAD` succeeds for every added commit and fails for every dropped one.",
+    "7. Don't push. Tell me which branch holds the result, the backup ref, and the push command for when I'm ready. Don't run tests unless I ask.",
+  );
   return out.join("\n");
 }
 
@@ -528,6 +566,7 @@ function paintPlan() {
   if (sendState !== "available") {
     status.classList.add("err");
     status.textContent = {
+      not_owner: "Rebase runs in the Claude session of whoever published this page, so only they can press it. Copy the request and paste it into your own Claude session.",
       writers_only: "Only editors of this page can send the rebase to Claude. Copy the request instead.",
       no_session: "No Claude session is watching this page right now. Copy the request into the session instead.",
       off: "Sending to Claude isn't available in this view. Copy the request into the session instead.",
@@ -548,7 +587,7 @@ function flash(text, err) {
 $("reset").addEventListener("click", () => { state.chosen[state.target] = {}; refresh(); });
 $("copy").addEventListener("click", () => {
   const text = requestText();
-  navigator.clipboard.writeText(text).then(() => flash("Copied. Paste it into the Claude session."), () => flash("Copy was blocked. Select the request text manually: " + text, true));
+  navigator.clipboard.writeText(text).then(() => flash("Copied. Paste it into any Claude Code session: the request explains itself."), () => flash("Copy was blocked. Select the request text manually: " + text, true));
 });
 $("rebase").addEventListener("click", async () => {
   if (!commentsApi) return;
@@ -605,8 +644,13 @@ if (document.fonts) document.fonts.ready.then(drawLinks);
 
 (async () => {
   try {
-    commentsApi = await window.claude?.use?.("comments");
-    if (commentsApi) sendState = await commentsApi.canSendToClaude();
+    // The Rebase button runs in the publisher's own Claude session, so only they get it.
+    const user = await window.claude?.use?.("user");
+    if (!(await user?.isOwner())) sendState = "not_owner";
+    else {
+      commentsApi = await window.claude.use("comments");
+      if (commentsApi) sendState = await commentsApi.canSendToClaude();
+    }
   } catch (e) { sendState = "off"; }
   paintPlan();
 })();
