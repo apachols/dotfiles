@@ -1,2 +1,6 @@
 # Do not commit secrets
 .secrets
+
+# Python bytecode caches (e.g. from skill scripts)
+__pycache__/
+*.pyc
