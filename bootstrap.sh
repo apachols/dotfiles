@@ -10,15 +10,15 @@ DOTFILES_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ln -sfn "$DOTFILES_PATH/.bash_profile" "$HOME/.bash_profile"
 echo "linked $HOME/.bash_profile -> $DOTFILES_PATH/.bash_profile"
 
-# Have .bashrc source it, exactly once. Older versions of this script appended a
-# hardcoded "source /home/$USER/.bash_profile" on every run, so strip any
-# existing .bash_profile source line before adding the canonical one back.
-SOURCE_LINE="source \$HOME/.bash_profile"
+# Have .bashrc source it. Append-only: never rewrite ~/.bashrc, because the
+# cloud env image owns that file and other startup scripts edit it too.
+# Leftover duplicate source lines from older bootstraps are harmless.
+SOURCE_LINE='source $HOME/.bash_profile'
 touch "$HOME/.bashrc"
-sed -i.bak -E '/^[[:space:]]*(source|\.)[[:space:]]+.*\.bash_profile[[:space:]]*$/d' "$HOME/.bashrc"
-rm -f "$HOME/.bashrc.bak"
-echo "$SOURCE_LINE" >> "$HOME/.bashrc"
-echo "set .bash_profile source line in $HOME/.bashrc"
+if ! grep -qxF "$SOURCE_LINE" "$HOME/.bashrc"; then
+    echo "$SOURCE_LINE" >> "$HOME/.bashrc"
+    echo "added .bash_profile source line to $HOME/.bashrc"
+fi
 
 # Append gitconfig, exactly once
 MARKER="# --- dotfiles gitconfig ---"

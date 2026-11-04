@@ -107,6 +107,8 @@ current session already has the change.
 When you are working in the `web` repo, please strictly follow these conventions:
 
 - DO NOT commit or push any code unless I ask for that explicitly (ask first)
+- Whenever we rebase, if the PR has translations, run translations again
+  afterwards. CI will likely demand that we do so.
 
 The `web` repository is FULL of files with common / repeated / duplicate file names - forms.py, models.py, etc. Always print file names namespaced to the django app folder they are in: seo/models.py, api/current/serializers/models.py.
 
