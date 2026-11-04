@@ -22,7 +22,8 @@ unique substring is enough.
 |---|---|
 | `add-doc <link> <name>` | `tracker.py add-doc`, then `build-changelog <doc> 7`, then publish |
 | `build-changelog <doc> [days]` | Make the log cover the last `days` days (default 7), then publish |
-| `update [<doc> \| all]` | Bring each doc up to now, then publish once. No argument means all |
+| `update [<doc> \| all]` | Bring each doc up to now, then publish once. No argument means all active docs; archived docs are skipped unless named |
+| `archive <doc> [reason]` | `tracker.py archive <doc> --reason "Merged Nov 2"`, then publish. Undo with `unarchive` |
 | Anything about open questions | `scripts/oq.py`, see Open questions. No publish needed |
 
 Add `--project <name>` before the subcommand for a project other than the default.
@@ -151,6 +152,15 @@ Readers want to keep up, not to replay the activity.
 
 Nothing in a burst worth telling a reader (a typo fix, a rebase)? Write no entry, but still
 pass the range to `apply` so coverage moves forward.
+
+## Archiving
+
+A doc that no longer needs tracking (a merged PR, a superseded spec) gets `archivedAt` and
+an optional `archivedReason`. Its change log is kept. The site hides archived docs behind
+a "Show N archived" button and leaves their entries out of the unread counts. Archiving
+happens only from a session; the site has no archive button. `tracker.py status` skips
+archived docs unless you pass `--include-archived` or name the doc, so `update all` should
+take its doc list from `status`.
 
 ## Publishing
 

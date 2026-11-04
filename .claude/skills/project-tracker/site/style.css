@@ -196,3 +196,9 @@ pre { background: var(--code-bg); padding: 8px 10px; border-radius: 6px; overflo
 .answer ul { margin: 6px 0; padding-left: 20px; }
 .md li + li, .answer li + li { margin-top: 2px; }
 .md li ul, .answer li ul { margin: 2px 0; }
+
+.archived-pill { background: var(--surface-2); color: var(--muted); font-weight: 500; }
+.source.is-archived { box-shadow: none; background: var(--surface-2); }
+.source.is-archived .source-date { color: var(--faint); }
+.archived-toggle { margin: 4px 0 16px; }
+.section-head { font-size: 1em; color: var(--muted); margin: 8px 0 10px; }

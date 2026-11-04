@@ -13,6 +13,7 @@ const KIND_LABELS = {
 let DATA = null;
 let READ = {};
 let STORAGE_KEY = "project-tracker:read";
+let SHOW_ARCHIVED = false;
 
 // ------------------------------------------------------------------ read state
 
@@ -93,44 +94,64 @@ function external(url, label) {
 
 // ------------------------------------------------------------------ views
 
-function renderSources() {
-  const docs = [...DATA.docs].sort((a, b) => {
-    const la = latestStart(a.id) || "";
-    const lb = latestStart(b.id) || "";
-    return lb.localeCompare(la) || a.name.localeCompare(b.name);
-  });
-  const allEntries = DATA.entries;
-  const unreadTotal = allEntries.filter(isUnread).length;
-
-  const rows = docs.map((doc) => {
-    const entries = entriesFor(doc.id);
-    const unread = entries.filter(isUnread).length;
-    const latest = latestStart(doc.id);
-    const headline = entries.length ? entries[0].title : "No changes logged yet";
-    return `
-      <li class="source">
-        <div class="source-date">${latest ? esc(shortDate(latest)) : "—"}</div>
-        <div class="source-body">
-          <div class="source-title">
-            <a href="#doc=${encodeURIComponent(doc.id)}">${esc(doc.name)}</a>
-            ${unread ? `<span class="pill unread-pill">${unread} unread</span>` : ""}
-            <span class="kind">${esc(KIND_LABELS[doc.kind] || doc.kind)}</span>
-          </div>
-          <div class="source-headline">${inline(headline)}</div>
-          <div class="source-links">
-            ${external(doc.url, "Open doc")}
-            <a href="#doc=${encodeURIComponent(doc.id)}">Change log (${entries.length})</a>
-          </div>
+function sourceRow(doc) {
+  const entries = entriesFor(doc.id);
+  const unread = entries.filter(isUnread).length;
+  const latest = latestStart(doc.id);
+  const headline = entries.length ? entries[0].title : "No changes logged yet";
+  return `
+    <li class="source ${doc.archivedAt ? "is-archived" : ""}">
+      <div class="source-date">${latest ? esc(shortDate(latest)) : "—"}</div>
+      <div class="source-body">
+        <div class="source-title">
+          <a href="#doc=${encodeURIComponent(doc.id)}">${esc(doc.name)}</a>
+          ${unread ? `<span class="pill unread-pill">${unread} unread</span>` : ""}
+          <span class="kind">${esc(KIND_LABELS[doc.kind] || doc.kind)}</span>
+          ${archivedPill(doc)}
         </div>
-      </li>`;
-  });
+        <div class="source-headline">${inline(headline)}</div>
+        <div class="source-links">
+          ${external(doc.url, "Open doc")}
+          <a href="#doc=${encodeURIComponent(doc.id)}">Change log (${entries.length})</a>
+        </div>
+      </div>
+    </li>`;
+}
+
+function archivedPill(doc) {
+  if (!doc.archivedAt) return "";
+  const why = doc.archivedReason ? ` title="${esc(doc.archivedReason)}"` : "";
+  return `<span class="pill archived-pill"${why}>Archived ${esc(shortDate(doc.archivedAt))}</span>`;
+}
+
+function visibleEntries() {
+  const hidden = new Set(DATA.docs.filter((d) => d.archivedAt && !SHOW_ARCHIVED).map((d) => d.id));
+  return DATA.entries.filter((e) => !hidden.has(e.doc));
+}
+
+function renderSources() {
+  const byLatest = (a, b) =>
+    (latestStart(b.id) || "").localeCompare(latestStart(a.id) || "") || a.name.localeCompare(b.name);
+  const active = DATA.docs.filter((d) => !d.archivedAt).sort(byLatest);
+  const archived = DATA.docs.filter((d) => d.archivedAt).sort(byLatest);
+  const unreadTotal = visibleEntries().filter(isUnread).length;
+
+  const toggle = archived.length
+    ? `<p class="archived-toggle"><button class="btn btn-small" data-action="toggle-archived">${
+        SHOW_ARCHIVED ? "Hide" : "Show"} ${archived.length} archived</button></p>`
+    : "";
+  const archivedList = SHOW_ARCHIVED && archived.length
+    ? `<h2 class="section-head">Archived</h2><ul class="sources">${archived.map(sourceRow).join("")}</ul>`
+    : "";
 
   return `
     <div class="page-head">
       <h1>Sources</h1>
       ${unreadTotal ? `<button class="btn accent-2" data-action="read-all">Mark all ${unreadTotal} read</button>` : ""}
     </div>
-    ${docs.length ? `<ul class="sources">${rows.join("")}</ul>` : `<p class="empty">No docs tracked yet.</p>`}`;
+    ${active.length ? `<ul class="sources">${active.map(sourceRow).join("")}</ul>` : `<p class="empty">No active docs.</p>`}
+    ${toggle}
+    ${archivedList}`;
 }
 
 function renderEntry(entry) {
@@ -169,8 +190,10 @@ function renderDoc(docId) {
         <h1>${esc(doc.name)}</h1>
         <p class="meta">
           <span class="kind">${esc(KIND_LABELS[doc.kind] || doc.kind)}</span>
+          ${archivedPill(doc)}
           ${external(doc.url, "Open doc")}
           <span>${coverage}</span>
+          ${doc.archivedReason ? `<span>${inline(doc.archivedReason)}</span>` : ""}
         </p>
       </div>
       ${unread ? `<button class="btn accent-2" data-action="read-doc" data-id="${esc(doc.id)}">Mark all ${unread} read</button>` : ""}
@@ -202,7 +225,10 @@ document.addEventListener("click", (event) => {
   } else if (action === "read-doc") {
     setRead(entriesFor(button.dataset.id), true);
   } else if (action === "read-all") {
-    setRead(DATA.entries, true);
+    setRead(visibleEntries(), true);
+  } else if (action === "toggle-archived") {
+    SHOW_ARCHIVED = !SHOW_ARCHIVED;
+    render();
   }
 });
 

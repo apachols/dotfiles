@@ -13,6 +13,8 @@ bookkeeping around them so it stays deterministic:
     tracker.py bursts EVENTS.json       group any {at, actor} events into bursts
     tracker.py snapshot DOC SRC_DIR     diff SRC_DIR against the stored copy (--commit stores it)
     tracker.py apply DOC ENTRIES.json   upsert entries, widen coverage, save the cursor
+    tracker.py archive DOC [--reason R] hide a doc on the site and skip it in `update all`
+    tracker.py unarchive DOC
     tracker.py build
     tracker.py publish [--dry-run] [--no-pull]
 
@@ -253,6 +255,22 @@ def cmd_add_doc(args) -> int:
     return 0
 
 
+def cmd_archive(args) -> int:
+    tracker = Tracker(*resolve_project(args.project))
+    doc = tracker.find_doc(args.doc)
+    if args.undo:
+        doc.pop("archivedAt", None)
+        doc.pop("archivedReason", None)
+        print(f"{doc['id']}: unarchived")
+    else:
+        doc["archivedAt"] = doc.get("archivedAt") or iso(now())
+        if args.reason:
+            doc["archivedReason"] = args.reason
+        print(f"{doc['id']}: archived {doc['archivedAt']}")
+    tracker.save()
+    return 0
+
+
 def doc_status(tracker: Tracker, doc: dict) -> dict:
     entries = sorted(tracker.entries_for(doc["id"]), key=lambda e: e["start"])
     return {
@@ -268,7 +286,14 @@ def doc_status(tracker: Tracker, doc: dict) -> dict:
 
 def cmd_status(args) -> int:
     tracker = Tracker(*resolve_project(args.project))
-    docs = [tracker.find_doc(args.doc)] if args.doc else tracker.data["docs"]
+    if args.doc:
+        docs = [tracker.find_doc(args.doc)]
+    else:
+        docs = [
+            d
+            for d in tracker.data["docs"]
+            if args.include_archived or not d.get("archivedAt")
+        ]
     emit(
         {
             "project": tracker.name,
@@ -581,14 +606,27 @@ def cmd_apply(args) -> int:
 # --------------------------------------------------------------------------- site
 
 
-PUBLIC_DOC_FIELDS = ("id", "name", "url", "kind", "addedAt", "coverage", "lastRunAt")
+PUBLIC_DOC_FIELDS = (
+    "id",
+    "name",
+    "url",
+    "kind",
+    "addedAt",
+    "coverage",
+    "lastRunAt",
+    "archivedAt",
+    "archivedReason",
+)
 
 
 def public_data(tracker: Tracker) -> dict:
     return {
         "project": {"title": tracker.title, "site": tracker.site},
         "generatedAt": iso(now()),
-        "docs": [{k: d.get(k) for k in PUBLIC_DOC_FIELDS} for d in tracker.data["docs"]],
+        "docs": [
+            {k: d[k] for k in PUBLIC_DOC_FIELDS if d.get(k) is not None}
+            for d in tracker.data["docs"]
+        ],
         "entries": sorted(
             tracker.data["entries"], key=lambda e: e["start"], reverse=True
         ),
@@ -739,6 +777,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("status")
     p.add_argument("doc", nargs="?")
+    p.add_argument(
+        "--include-archived", action="store_true", help="list archived docs too"
+    )
     p.set_defaults(func=cmd_status)
 
     p = sub.add_parser("window")
@@ -775,6 +816,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--covered-to")
     p.add_argument("--cursor", help="JSON object merged into the doc's cursor")
     p.set_defaults(func=cmd_apply)
+
+    p = sub.add_parser("archive", help="hide a doc on the site; its log is kept")
+    p.add_argument("doc")
+    p.add_argument("--reason", help='shown on the site, e.g. "Merged Nov 2"')
+    p.set_defaults(func=cmd_archive, undo=False)
+
+    p = sub.add_parser("unarchive")
+    p.add_argument("doc")
+    p.set_defaults(func=cmd_archive, undo=True, reason=None)
 
     sub.add_parser("build").set_defaults(func=cmd_build)
 
