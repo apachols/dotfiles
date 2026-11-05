@@ -202,3 +202,20 @@ pre { background: var(--code-bg); padding: 8px 10px; border-radius: 6px; overflo
 .source.is-archived .source-date { color: var(--faint); }
 .archived-toggle { margin: 4px 0 16px; }
 .section-head { font-size: 1em; color: var(--muted); margin: 8px 0 10px; }
+
+/* ---------------------------------------------------------------- PRs */
+.pr {
+  display: grid; grid-template-columns: 56px 1fr; gap: 12px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 12px 16px; margin-bottom: 10px; overflow-wrap: anywhere;
+}
+.pr.is-hidden { opacity: .6; box-shadow: none; background: var(--surface-2); }
+.pr-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: .85em; margin: 2px 0 8px; }
+.pr-why { color: var(--faint); }
+.pr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: .9em; }
+.pr-actions .seg { padding: 2px 10px; font-size: .8em; }
+.pending { color: var(--muted); font-size: .9em; }
+.linkish { font: inherit; border: 0; background: none; color: var(--accent); cursor: pointer; padding: 0; }
+.section-head .count { color: var(--faint); font-weight: 400; }
+.section-blurb { color: var(--faint); font-size: .85em; margin: -6px 0 10px; }
+@media (max-width: 560px) { .pr { grid-template-columns: 1fr; gap: 2px; } }

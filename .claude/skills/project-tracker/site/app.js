@@ -204,10 +204,12 @@ function renderDoc(docId) {
 function render() {
   const view = document.getElementById("view");
   const hash = decodeURIComponent(location.hash.slice(1));
+  const section = hash === "questions" || hash === "prs" ? hash : "";
   for (const link of document.querySelectorAll(".nav a")) {
-    link.classList.toggle("is-active", (link.getAttribute("href") === "#questions") === (hash === "questions"));
+    link.classList.toggle("is-active", link.getAttribute("href").slice(1) === section);
   }
   if (hash === "questions") return Questions.mount(view);
+  if (hash === "prs") return Prs.mount(view);
   if (!DATA) return;
   const doc = hash.startsWith("doc=") ? hash.slice(4) : null;
   view.innerHTML = doc ? renderDoc(doc) : renderSources();
@@ -250,6 +252,6 @@ fetch("data.json", { cache: "no-store" })
     render();
   })
   .catch((err) => {
-    if (location.hash === "#questions") return;
+    if (location.hash === "#questions" || location.hash === "#prs") return;
     document.getElementById("view").innerHTML = `<p class="empty">Could not load data.json: ${esc(err)}</p>`;
   });

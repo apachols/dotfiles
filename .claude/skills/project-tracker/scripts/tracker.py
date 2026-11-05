@@ -15,6 +15,9 @@ bookkeeping around them so it stays deterministic:
     tracker.py apply DOC ENTRIES.json   upsert entries, widen coverage, save the cursor
     tracker.py archive DOC [--reason R] hide a doc on the site and skip it in `update all`
     tracker.py unarchive DOC
+    tracker.py pr-config --repo R --team a,b --keywords X --epics DEV-1
+    tracker.py pr-discover --epic-keys K.json  find open PRs, classify new ones
+    tracker.py pr-classify N P2 --reason R  set a priority the rules could not
     tracker.py build
     tracker.py publish [--dry-run] [--no-pull]
 
@@ -145,7 +148,9 @@ class Tracker:
         for doc in docs:
             if lowered in (doc["id"], doc["name"].lower(), doc["url"].lower()):
                 return doc
-        partial = [d for d in docs if lowered in d["name"].lower() or lowered in d["id"]]
+        partial = [
+            d for d in docs if lowered in d["name"].lower() or lowered in d["id"]
+        ]
         if len(partial) == 1:
             return partial[0]
         names = ", ".join(f"{d['id']} ({d['name']})" for d in docs) or "none"
@@ -350,7 +355,10 @@ def group_bursts(events: list[dict], gap: timedelta = BURST_GAP) -> list[dict]:
     for actor, items in by_actor.items():
         current: list[dict] = []
         for event in items:
-            if current and parse_time(event["at"]) - parse_time(current[-1]["at"]) > gap:
+            if (
+                current
+                and parse_time(event["at"]) - parse_time(current[-1]["at"]) > gap
+            ):
                 bursts.append(current)
                 current = []
             current.append(event)
@@ -501,7 +509,9 @@ def cmd_snapshot(args) -> int:
                 n=2,
             )
         )
-    changed = sorted(n for n in set(before) | set(after) if before.get(n) != after.get(n))
+    changed = sorted(
+        n for n in set(before) | set(after) if before.get(n) != after.get(n)
+    )
     print(
         json.dumps(
             {"doc": doc["id"], "firstSnapshot": not before, "changedFiles": changed}
@@ -603,8 +613,337 @@ def cmd_apply(args) -> int:
     return 0
 
 
+# --------------------------------------------------------------------------- PRs
+#
+# Discovery finds open PRs by search, gives each a priority the first time it appears,
+# and keeps it in tracker.json under "prs". The site stores the reader's choices
+# (priority, hidden, track) in the Yard shared store as pr.<number>; those always win.
+
+PR_PREFIX = "pr."
+TICKET_RE = re.compile(r"\b([A-Z][A-Z0-9]+-\d+)\b")
+PRIORITY_LABELS = {1: "needs you", 2: "keep current", 3: "everything else"}
+
+
+def pr_settings(project: dict) -> dict:
+    settings = project.get("prs") or {}
+    if not settings.get("repo"):
+        die("PR discovery is not configured; run `tracker.py pr-config` first")
+    return settings
+
+
+def gh_search(query: str, limit: int = 200) -> list[dict]:
+    items: list[dict] = []
+    page = 1
+    while len(items) < limit:
+        proc = run(
+            [
+                "gh",
+                "api",
+                "-X",
+                "GET",
+                "search/issues",
+                "-f",
+                f"q={query}",
+                "-f",
+                "per_page=100",
+                "-f",
+                f"page={page}",
+            ],
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            sys.stderr.write(proc.stderr)
+            die(f"gh search failed for {query!r}")
+        batch = json.loads(proc.stdout).get("items", [])
+        items.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+    return items[:limit]
+
+
+def gh_login() -> str:
+    proc = run(["gh", "api", "user", "--jq", ".login"], capture_output=True)
+    if proc.returncode != 0:
+        die("gh is not signed in; run `gh auth login`")
+    return proc.stdout.strip()
+
+
+def shared_overrides(site: str) -> dict[int, dict]:
+    """pr.<number> keys from the site's shared store. An unpublished site has none."""
+    proc = run(["yard", "shared", "ls", "--site", site, "--json"], capture_output=True)
+    if proc.returncode != 0:
+        sys.stderr.write((proc.stderr or proc.stdout or "").strip() + "\n")
+        print("overrides: could not read the shared store, using none", file=sys.stderr)
+        return {}
+    keys = [
+        k["key"]
+        for k in json.loads(proc.stdout or "{}").get("keys", [])
+        if k["key"].startswith(PR_PREFIX)
+    ]
+    found = {}
+    for key in keys:
+        got = run(
+            ["yard", "shared", "get", key, "--site", site, "--json"],
+            capture_output=True,
+        )
+        if got.returncode != 0:
+            continue
+        try:
+            found[int(key[len(PR_PREFIX) :])] = json.loads(
+                json.loads(got.stdout)["value"]
+            )
+        except (ValueError, KeyError, json.JSONDecodeError):
+            continue
+    return found
+
+
+def classify(signals: set[str]) -> tuple[int | None, str]:
+    """Priority from search signals. None means the agent has to judge it."""
+    if "review-requested" in signals:
+        return 1, "your review is requested"
+    if "mentioned" in signals:
+        return 1, "you are mentioned"
+    if "reviewed" in signals and ("epic" in signals or "team" in signals):
+        return 1, "you reviewed it"
+    if "epic" in signals:
+        return 2, "its ticket is in the project epic"
+    if "reviewed" in signals:
+        return 2, "you reviewed it, outside the project"
+    if "team" in signals and "keyword" in signals:
+        return 2, "a teammate's PR that mentions the project"
+    if "team" in signals and "other-ticket" in signals:
+        return 3, "a teammate's PR for a ticket outside the project epic"
+    return None, "needs a judgement: " + ", ".join(sorted(signals))
+
+
+def pr_record(item: dict) -> dict:
+    tickets = sorted(set(TICKET_RE.findall(item.get("title") or "")))
+    if not tickets:
+        tickets = sorted(set(TICKET_RE.findall((item.get("body") or "")[:4000])))[:3]
+    return {
+        "number": item["number"],
+        "url": item["html_url"],
+        "title": item["title"],
+        "author": (item.get("user") or {}).get("login") or "",
+        "draft": bool(item.get("draft")),
+        "tickets": tickets,
+        "createdAt": item["created_at"],
+        "updatedAt": item["updated_at"],
+        "state": "open",
+    }
+
+
+def effective_priority(pr: dict, override: dict | None) -> int | None:
+    if override and override.get("priority") in (1, 2, 3):
+        return override["priority"]
+    return pr.get("priority")
+
+
+def cmd_pr_config(args) -> int:
+    config = load_config()
+    name = args.project or config.get("default")
+    if name not in config["projects"]:
+        die(f"unknown project {name!r}")
+    settings = config["projects"][name].setdefault("prs", {})
+    if args.repo:
+        settings["repo"] = args.repo
+    for field, value in (
+        ("team", args.team),
+        ("keywords", args.keywords),
+        ("epics", args.epics),
+    ):
+        if value is not None:
+            settings[field] = [v.strip() for v in value.split(",") if v.strip()]
+    save_config(config)
+    emit(settings)
+    return 0
+
+
+def cmd_pr_discover(args) -> int:
+    name, project = resolve_project(args.project)
+    tracker = Tracker(name, project)
+    settings = pr_settings(project)
+    repo = settings["repo"]
+    me = gh_login()
+    team = [t for t in settings.get("team", []) if t != me]
+    epic_keys = set()
+    if args.epic_keys:
+        epic_keys = set(json.loads(Path(args.epic_keys).read_text(encoding="utf-8")))
+    elif settings.get("epics"):
+        print(
+            "warning: no --epic-keys file, so no PR can match the epic", file=sys.stderr
+        )
+
+    since = (now() - timedelta(days=args.days)).strftime("%Y-%m-%d")
+    # Your own PRs are left out: they have their own workflow.
+    base = f"repo:{repo} is:pr is:open archived:false updated:>={since} -author:{me}"
+    queries = {
+        "review-requested": f"{base} review-requested:{me}",
+        "mentioned": f"{base} mentions:{me}",
+        "reviewed": f"{base} reviewed-by:{me}",
+    }
+    if team:
+        queries["team"] = base + " " + " ".join(f"author:{t}" for t in team)
+    for word in settings.get("keywords", []):
+        queries[f"keyword:{word}"] = f'{base} "{word}"'
+
+    found: dict[int, dict] = {}
+    signals: dict[int, set[str]] = {}
+    for signal, query in queries.items():
+        for item in gh_search(query):
+            number = item["number"]
+            found.setdefault(number, pr_record(item))
+            signals.setdefault(number, set()).add(signal.split(":")[0])
+    for number, pr in found.items():
+        if pr["author"].endswith("[bot]"):
+            signals[number].add("bot")
+        if epic_keys and set(pr["tickets"]) & epic_keys:
+            signals[number].add("epic")
+        elif pr["tickets"]:
+            signals[number].add("other-ticket")
+
+    prs = tracker.data.setdefault("prs", {})
+    for key in [k for k, pr in prs.items() if pr.get("author") == me]:
+        del prs[key]
+    tracker.data["prsMe"] = me
+    stamp = iso(now())
+    new, upgraded = [], []
+    for number, pr in found.items():
+        computed, reason = classify(signals[number])
+        if "bot" in signals[number] and computed != 1:
+            computed, reason = 3, "opened by a bot"
+        stored = prs.get(str(number))
+        if stored is None:
+            prs[str(number)] = {
+                **pr,
+                "signals": sorted(signals[number]),
+                "priority": computed,
+                "reason": reason,
+                "classifiedBy": "rules" if computed else None,
+                "firstSeenAt": stamp,
+            }
+            new.append(number)
+            continue
+        stored.update({**pr, "signals": sorted(signals[number])})
+        # Rules may raise a PR (a review gets requested later) but never lower it, and
+        # never touch a priority the agent judged.
+        current = stored.get("priority")
+        if (
+            computed
+            and stored.get("classifiedBy") == "rules"
+            and computed < (current or 4)
+        ):
+            stored.update(priority=computed, reason=reason)
+            upgraded.append(number)
+        elif current is None and computed:
+            stored.update(priority=computed, reason=reason, classifiedBy="rules")
+
+    closed = []
+    for key, stored in prs.items():
+        if stored.get("state") != "open" or int(key) in found:
+            continue
+        proc = run(["gh", "api", f"repos/{repo}/pulls/{key}"], capture_output=True)
+        if proc.returncode != 0:
+            continue
+        live = json.loads(proc.stdout)
+        if live["state"] == "open":
+            continue
+        stored["state"] = "merged" if live.get("merged_at") else "closed"
+        stored["closedAt"] = live.get("merged_at") or live.get("closed_at")
+        closed.append(int(key))
+    tracker.data["prsDiscoveredAt"] = stamp
+    tracker.save()
+
+    overrides = shared_overrides(tracker.site) if not args.no_overrides else {}
+    tracked = {
+        d["source"].get("number"): d
+        for d in tracker.data["docs"]
+        if d["kind"] == "github_pr" and d["source"].get("repo") == repo
+    }
+    to_track, to_archive, judge = [], [], []
+    for key, stored in sorted(prs.items(), key=lambda kv: int(kv[0])):
+        number = int(key)
+        override = overrides.get(number) or {}
+        if override.get("hidden"):
+            continue
+        priority = effective_priority(stored, override)
+        doc = tracked.get(number)
+        if stored["state"] != "open":
+            if doc and not doc.get("archivedAt"):
+                to_archive.append(
+                    {
+                        "doc": doc["id"],
+                        "number": number,
+                        "reason": f"{stored['state'].title()} {(stored.get('closedAt') or '')[:10]}",
+                    }
+                )
+            continue
+        if priority is None:
+            judge.append(
+                {
+                    k: stored[k]
+                    for k in ("number", "url", "title", "author", "tickets", "signals")
+                }
+            )
+        elif not doc and override.get("track"):
+            to_track.append(
+                {"number": number, "url": stored["url"], "title": stored["title"]}
+            )
+    counts = {p: 0 for p in ("P1", "P2", "P3", "unclassified")}
+    for key, stored in prs.items():
+        if stored["state"] == "open" and not (overrides.get(int(key)) or {}).get(
+            "hidden"
+        ):
+            p = effective_priority(stored, overrides.get(int(key)))
+            counts[f"P{p}" if p else "unclassified"] += 1
+    emit(
+        {
+            "me": me,
+            "openByPriority": counts,
+            "new": new,
+            "upgraded": upgraded,
+            "closed": closed,
+            "needsJudgement": judge,
+            "toTrack": to_track,
+            "toArchive": to_archive,
+        }
+    )
+    return 0
+
+
+def cmd_pr_classify(args) -> int:
+    tracker = Tracker(*resolve_project(args.project))
+    stored = tracker.data.get("prs", {}).get(str(args.number))
+    if not stored:
+        die(f"PR {args.number} has not been discovered; run pr-discover first")
+    priority = int(args.priority.lstrip("Pp"))
+    if priority not in (1, 2, 3):
+        die("priority must be P1, P2 or P3")
+    stored.update(priority=priority, reason=args.reason, classifiedBy="agent")
+    tracker.save()
+    print(f"#{args.number}: P{priority} ({args.reason})")
+    return 0
+
+
 # --------------------------------------------------------------------------- site
 
+
+PUBLIC_PR_FIELDS = (
+    "number",
+    "url",
+    "title",
+    "author",
+    "draft",
+    "tickets",
+    "createdAt",
+    "updatedAt",
+    "state",
+    "closedAt",
+    "priority",
+    "reason",
+    "firstSeenAt",
+)
 
 PUBLIC_DOC_FIELDS = (
     "id",
@@ -630,7 +969,24 @@ def public_data(tracker: Tracker) -> dict:
         "entries": sorted(
             tracker.data["entries"], key=lambda e: e["start"], reverse=True
         ),
+        "prsDiscoveredAt": tracker.data.get("prsDiscoveredAt"),
+        "prs": public_prs(tracker),
     }
+
+
+def public_prs(tracker: Tracker) -> list[dict]:
+    docs_by_url = {d["url"].rstrip("/"): d["id"] for d in tracker.data["docs"]}
+    result = []
+    me = tracker.data.get("prsMe")
+    for pr in tracker.data.get("prs", {}).values():
+        if pr.get("author") == me:
+            continue
+        row = {k: pr[k] for k in PUBLIC_PR_FIELDS if pr.get(k) is not None}
+        doc = docs_by_url.get(pr["url"].rstrip("/"))
+        if doc:
+            row["doc"] = doc
+        result.append(row)
+    return sorted(result, key=lambda r: r["updatedAt"], reverse=True)
 
 
 def build_site(tracker: Tracker) -> Path:
@@ -700,7 +1056,16 @@ def merge_live(tracker: Tracker, live: dict) -> tuple[int, int]:
         if entry["id"] not in local_entries:
             tracker.data["entries"].append(entry)
             restored_entries += 1
-    if restored_docs or restored_entries:
+    prs = tracker.data.setdefault("prs", {})
+    restored_prs = 0
+    for pr in live.get("prs", []):
+        if pr.get("author") == tracker.data.get("prsMe"):
+            continue
+        if str(pr["number"]) not in prs:
+            restored = {k: v for k, v in pr.items() if k != "doc"}
+            prs[str(pr["number"])] = {**restored, "classifiedBy": "restored"}
+            restored_prs += 1
+    if restored_docs or restored_entries or restored_prs:
         tracker.save()
     return restored_docs, restored_entries
 
@@ -764,7 +1129,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--data-dir", required=True)
     p.add_argument("--site", required=True, help="Yard site id")
     p.add_argument("--title", required=True)
-    p.add_argument("--default", action="store_true", help="make this the default project")
+    p.add_argument(
+        "--default", action="store_true", help="make this the default project"
+    )
     p.set_defaults(func=cmd_init)
 
     sub.add_parser("projects", help="print the config").set_defaults(func=cmd_projects)
@@ -806,7 +1173,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("snapshot")
     p.add_argument("doc")
     p.add_argument("src", help="directory holding the doc's current content")
-    p.add_argument("--commit", action="store_true", help="store SRC as the new snapshot")
+    p.add_argument(
+        "--commit", action="store_true", help="store SRC as the new snapshot"
+    )
     p.set_defaults(func=cmd_snapshot)
 
     p = sub.add_parser("apply")
@@ -825,6 +1194,34 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("unarchive")
     p.add_argument("doc")
     p.set_defaults(func=cmd_archive, undo=True, reason=None)
+
+    p = sub.add_parser("pr-config", help="set the repo, team, keywords and epics")
+    p.add_argument("--repo", help="owner/name, e.g. roverdotcom/web")
+    p.add_argument("--team", help="comma-separated GitHub logins")
+    p.add_argument("--keywords", help="comma-separated words to search PR text for")
+    p.add_argument("--epics", help="comma-separated Jira epic keys")
+    p.set_defaults(func=cmd_pr_config)
+
+    p = sub.add_parser("pr-discover", help="find open PRs and classify new ones")
+    p.add_argument(
+        "--epic-keys", help="JSON list of the ticket keys under the project's epics"
+    )
+    p.add_argument(
+        "--days",
+        type=int,
+        default=30,
+        help="only find PRs with activity in this many days (default 30)",
+    )
+    p.add_argument(
+        "--no-overrides", action="store_true", help="skip reading the shared store"
+    )
+    p.set_defaults(func=cmd_pr_discover)
+
+    p = sub.add_parser("pr-classify", help="set a PR's priority after judging it")
+    p.add_argument("number", type=int)
+    p.add_argument("priority", help="P1, P2 or P3")
+    p.add_argument("--reason", required=True, help="one line, shown on the site")
+    p.set_defaults(func=cmd_pr_classify)
 
     sub.add_parser("build").set_defaults(func=cmd_build)
 
