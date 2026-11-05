@@ -60,4 +60,4 @@ reference the variable, never the value. Check your diff before every commit.
 dotfiles && personalize && web
 ```
 
-`dotfiles` pulls (and refuses on a dirty tree — so never edit dotfiles from inside a codespace). `personalize` reinstalls the symlinks, hooks, and `~/.claude/settings.json` merge. Hook and rc changes only reach a **new** Claude session.
+In a codespace, `dotfiles` pulls (and refuses on a dirty tree — so never edit dotfiles from inside a codespace). In a roverspace it just `cd`s to `$DOTFILES_PATH`, like on the laptop — pull yourself. `personalize` reinstalls the symlinks, hooks, and `~/.claude/settings.json` merge. Hook and rc changes only reach a **new** Claude session.
