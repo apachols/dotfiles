@@ -102,6 +102,21 @@ Changes to `codespace-env.sh`, `.bashrc`, or an rc file only take effect in a
 is taken then. If I just ran `personalize`, say so rather than assuming the
 current session already has the change.
 
+## Referring to past sessions
+
+When I say "recent thread" ("in recent thread XYZ, ..."), or mention a
+"thread", "session", "chat" or "convo" by name or topic ("the thread from
+yesterday about X"), I mean a past Claude Code session in this app, not
+something in the repo. Before answering:
+
+1. Load the tools: `ToolSearch` with
+   `select:mcp__ccd_session_mgmt__list_sessions,mcp__ccd_session_mgmt__search_session_transcripts,mcp__ccd_session_mgmt__list_events`
+2. Find it with `list_sessions` (titles are fuzzy, so match loosely), or with
+   `search_session_transcripts` if I describe a topic instead of a name.
+   Add `include_archived: true` if nothing matches.
+3. Read it with `list_events`. Then carry on without asking me to confirm
+   which session I meant, unless two or more match about equally well.
+
 ## Rules for Rover Web
 
 When you are working in the `web` repo, please strictly follow these conventions:
