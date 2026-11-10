@@ -10,6 +10,10 @@
   --accent-soft: #e6eefc;
   --accent-2: #b4277a;
   --accent-2-soft: #fbe8f2;
+  --accent-3: #1f7a5a;
+  --accent-3-soft: #e1f3eb;
+  --accent-4: #a85a00;
+  --accent-4-soft: #fdefd9;
   --code-bg: #f3f3ef;
   --shadow: 0 1px 2px rgba(20, 20, 30, .05), 0 4px 16px rgba(20, 20, 30, .05);
   --radius: 10px;
@@ -29,6 +33,10 @@
     --accent-soft: #22324f;
     --accent-2: #f08cc4;
     --accent-2-soft: #42223a;
+    --accent-3: #5fd3a5;
+    --accent-3-soft: #173a2e;
+    --accent-4: #ffb85c;
+    --accent-4-soft: #43301a;
     --code-bg: #23272d;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3);
     color-scheme: dark;
@@ -77,7 +85,7 @@ h1 { font-size: 1.6em; margin: 0 0 4px; letter-spacing: -.01em; }
   color: var(--accent-2); background: var(--accent-2-soft); border-radius: 999px; padding: 1px 8px;
 }
 .pill { font-size: .75em; border-radius: 999px; padding: 1px 8px; font-weight: 600; }
-.unread-pill { background: var(--accent-soft); color: var(--accent); }
+.unread-pill { background: var(--accent-4-soft); color: var(--accent-4); font-weight: 600; }
 
 .sources { list-style: none; margin: 0; padding: 0; }
 .source {
@@ -212,6 +220,7 @@ pre { background: var(--code-bg); padding: 8px 10px; border-radius: 6px; overflo
 .pr.is-hidden { opacity: .6; box-shadow: none; background: var(--surface-2); }
 .pr-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: .85em; margin: 2px 0 8px; }
 .pr-why { color: var(--faint); }
+.pr-author { color: var(--accent-3); background: var(--accent-3-soft); border-radius: 999px; padding: 0 8px; font-weight: 600; }
 .pr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: .9em; }
 .pr-actions .seg { padding: 2px 10px; font-size: .8em; }
 .pending { color: var(--muted); font-size: .9em; }

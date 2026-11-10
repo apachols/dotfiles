@@ -130,7 +130,7 @@ const Prs = (() => {
           </div>
           <div class="pr-meta">
             <span class="mono">#${pr.number}</span>
-            <span>${esc(pr.author)}</span>
+            <span class="pr-author">${esc(pr.author)}</span>
             ${tickets}
             ${why ? `<span class="pr-why">${esc(why)}</span>` : ""}
           </div>
