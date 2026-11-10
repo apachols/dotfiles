@@ -615,13 +615,21 @@ def cmd_apply(args) -> int:
 
 # --------------------------------------------------------------------------- PRs
 #
-# Discovery finds open PRs by search, gives each a priority the first time it appears,
-# and keeps it in tracker.json under "prs". The site stores the reader's choices
-# (priority, hidden, track) in the Yard shared store as pr.<number>; those always win.
+# Discovery finds the project's open PRs by search and keeps them in tracker.json under
+# "prs" with a default priority. Each reader's own priority and Hide live in their Yard
+# key/value store, which only the site reads. "Add to Sources" is shared, as
+# pr.<number> = {"number", "track", "updated"} in the shared store.
 
 PR_PREFIX = "pr."
 TICKET_RE = re.compile(r"\b([A-Z][A-Z0-9]+-\d+)\b")
-PRIORITY_LABELS = {1: "needs you", 2: "keep current", 3: "everything else"}
+PRIORITY_LABELS = {1: "Needs Review", 2: "Not Right Now", 3: "Unrelated"}
+PRIORITY_NAMES = {
+    "1": 1, "p1": 1, "needs-review": 1, "review": 1,
+    "2": 2, "p2": 2, "not-right-now": 2, "later": 2,
+    "3": 3, "p3": 3, "unrelated": 3,
+}
+# A teammate's PR for a ticket outside the epics, with no keyword: left out.
+EXCLUDE = "exclude"
 
 
 def pr_settings(project: dict) -> dict:
@@ -662,19 +670,12 @@ def gh_search(query: str, limit: int = 200) -> list[dict]:
     return items[:limit]
 
 
-def gh_login() -> str:
-    proc = run(["gh", "api", "user", "--jq", ".login"], capture_output=True)
-    if proc.returncode != 0:
-        die("gh is not signed in; run `gh auth login`")
-    return proc.stdout.strip()
-
-
-def shared_overrides(site: str) -> dict[int, dict]:
-    """pr.<number> keys from the site's shared store. An unpublished site has none."""
+def shared_tracks(site: str) -> dict[int, bool]:
+    """Readers' "Add to Sources" choices: pr.<number> keys in the shared store."""
     proc = run(["yard", "shared", "ls", "--site", site, "--json"], capture_output=True)
     if proc.returncode != 0:
         sys.stderr.write((proc.stderr or proc.stdout or "").strip() + "\n")
-        print("overrides: could not read the shared store, using none", file=sys.stderr)
+        print("tracks: could not read the shared store, using none", file=sys.stderr)
         return {}
     keys = [
         k["key"]
@@ -690,31 +691,41 @@ def shared_overrides(site: str) -> dict[int, dict]:
         if got.returncode != 0:
             continue
         try:
-            found[int(key[len(PR_PREFIX) :])] = json.loads(
-                json.loads(got.stdout)["value"]
-            )
+            rec = json.loads(json.loads(got.stdout)["value"])
+            found[int(key[len(PR_PREFIX) :])] = bool(rec.get("track"))
         except (ValueError, KeyError, json.JSONDecodeError):
             continue
     return found
 
 
-def classify(signals: set[str]) -> tuple[int | None, str]:
-    """Priority from search signals. None means the agent has to judge it."""
-    if "review-requested" in signals:
-        return 1, "your review is requested"
-    if "mentioned" in signals:
-        return 1, "you are mentioned"
-    if "reviewed" in signals and ("epic" in signals or "team" in signals):
-        return 1, "you reviewed it"
+# Signals from searches that discovery no longer runs. They are dropped from stored PRs.
+RETIRED_SIGNALS = {"review-requested", "mentioned", "reviewed"}
+
+
+def add_ticket_signals(signals: set[str], pr: dict, epic_keys: set[str]) -> None:
+    signals.discard("epic")
+    signals.discard("other-ticket")
+    if pr["author"].endswith("[bot]"):
+        signals.add("bot")
+    if epic_keys and set(pr["tickets"]) & epic_keys:
+        signals.add("epic")
+    elif pr["tickets"]:
+        signals.add("other-ticket")
+
+
+def classify(signals: set[str]) -> tuple[int | str | None, str]:
+    """Default priority from search signals: 1-3, EXCLUDE, or None for the agent to judge."""
     if "epic" in signals:
-        return 2, "its ticket is in the project epic"
-    if "reviewed" in signals:
-        return 2, "you reviewed it, outside the project"
-    if "team" in signals and "keyword" in signals:
-        return 2, "a teammate's PR that mentions the project"
+        return 1, "its ticket is in the project epic"
+    if "keyword" in signals and "team" in signals and "bot" not in signals:
+        return 1, "a teammate's PR that mentions the project"
+    if "keyword" in signals:
+        return None, "mentions the project: " + ", ".join(sorted(signals))
     if "team" in signals and "other-ticket" in signals:
-        return 3, "a teammate's PR for a ticket outside the project epic"
-    return None, "needs a judgement: " + ", ".join(sorted(signals))
+        return EXCLUDE, "a teammate's PR for a ticket outside the project epic"
+    if "team" in signals and "bot" not in signals:
+        return None, "a teammate's PR with no ticket"
+    return EXCLUDE, "no project signal"
 
 
 def pr_record(item: dict) -> dict:
@@ -732,12 +743,6 @@ def pr_record(item: dict) -> dict:
         "updatedAt": item["updated_at"],
         "state": "open",
     }
-
-
-def effective_priority(pr: dict, override: dict | None) -> int | None:
-    if override and override.get("priority") in (1, 2, 3):
-        return override["priority"]
-    return pr.get("priority")
 
 
 def cmd_pr_config(args) -> int:
@@ -765,8 +770,7 @@ def cmd_pr_discover(args) -> int:
     tracker = Tracker(name, project)
     settings = pr_settings(project)
     repo = settings["repo"]
-    me = gh_login()
-    team = [t for t in settings.get("team", []) if t != me]
+    team = list(settings.get("team", []))
     epic_keys = set()
     if args.epic_keys:
         epic_keys = set(json.loads(Path(args.epic_keys).read_text(encoding="utf-8")))
@@ -776,17 +780,15 @@ def cmd_pr_discover(args) -> int:
         )
 
     since = (now() - timedelta(days=args.days)).strftime("%Y-%m-%d")
-    # Your own PRs are left out: they have their own workflow.
-    base = f"repo:{repo} is:pr is:open archived:false updated:>={since} -author:{me}"
-    queries = {
-        "review-requested": f"{base} review-requested:{me}",
-        "mentioned": f"{base} mentions:{me}",
-        "reviewed": f"{base} reviewed-by:{me}",
-    }
+    base = f"repo:{repo} is:pr is:open archived:false updated:>={since}"
+    queries = {}
     if team:
         queries["team"] = base + " " + " ".join(f"author:{t}" for t in team)
     for word in settings.get("keywords", []):
         queries[f"keyword:{word}"] = f'{base} "{word}"'
+    for i in range(0, len(epic_keys), 5):
+        chunk = sorted(epic_keys)[i : i + 5]
+        queries[f"epic:{i}"] = base + " " + " OR ".join(f'"{k}"' for k in chunk)
 
     found: dict[int, dict] = {}
     signals: dict[int, set[str]] = {}
@@ -794,54 +796,46 @@ def cmd_pr_discover(args) -> int:
         for item in gh_search(query):
             number = item["number"]
             found.setdefault(number, pr_record(item))
-            signals.setdefault(number, set()).add(signal.split(":")[0])
+            kind = signal.split(":")[0]
+            # The epic signal comes from the PR's own tickets, not from a text match.
+            signals.setdefault(number, set()).update(set() if kind == "epic" else {kind})
     for number, pr in found.items():
-        if pr["author"].endswith("[bot]"):
-            signals[number].add("bot")
-        if epic_keys and set(pr["tickets"]) & epic_keys:
-            signals[number].add("epic")
-        elif pr["tickets"]:
-            signals[number].add("other-ticket")
+        add_ticket_signals(signals[number], pr, epic_keys)
 
     prs = tracker.data.setdefault("prs", {})
-    for key in [k for k, pr in prs.items() if pr.get("author") == me]:
-        del prs[key]
-    tracker.data["prsMe"] = me
+    tracker.data.pop("prsMe", None)
     stamp = iso(now())
-    new, upgraded = [], []
+    new, excluded = [], []
     for number, pr in found.items():
-        computed, reason = classify(signals[number])
-        if "bot" in signals[number] and computed != 1:
-            computed, reason = 3, "opened by a bot"
         stored = prs.get(str(number))
         if stored is None:
-            prs[str(number)] = {
-                **pr,
-                "signals": sorted(signals[number]),
-                "priority": computed,
-                "reason": reason,
-                "classifiedBy": "rules" if computed else None,
-                "firstSeenAt": stamp,
-            }
+            stored = prs[str(number)] = {**pr, "firstSeenAt": stamp, "classifiedBy": None}
             new.append(number)
+        else:
+            stored.update(pr)
+        stored["signals"] = sorted(signals[number])
+    # Rules are re-applied to every PR they classified, so a rule change reaches old PRs.
+    # A priority the agent judged stays.
+    for key, stored in prs.items():
+        if stored.get("classifiedBy") == "agent":
             continue
-        stored.update({**pr, "signals": sorted(signals[number])})
-        # Rules may raise a PR (a review gets requested later) but never lower it, and
-        # never touch a priority the agent judged.
-        current = stored.get("priority")
-        if (
-            computed
-            and stored.get("classifiedBy") == "rules"
-            and computed < (current or 4)
-        ):
-            stored.update(priority=computed, reason=reason)
-            upgraded.append(number)
-        elif current is None and computed:
-            stored.update(priority=computed, reason=reason, classifiedBy="rules")
+        sig = set(stored.get("signals", [])) - RETIRED_SIGNALS
+        if stored.get("author", "").endswith("[bot]"):
+            sig.add("bot")
+        stored["signals"] = sorted(sig)
+        computed, reason = classify(sig)
+        if computed == EXCLUDE:
+            if not stored.get("excluded"):
+                excluded.append(int(key))
+            stored.update(priority=None, reason=reason, excluded=True, classifiedBy="rules")
+        elif computed is None:
+            stored.update(priority=None, reason=reason, excluded=False, classifiedBy=None)
+        else:
+            stored.update(priority=computed, reason=reason, excluded=False, classifiedBy="rules")
 
     closed = []
     for key, stored in prs.items():
-        if stored.get("state") != "open" or int(key) in found:
+        if stored.get("state") != "open" or int(key) in found or stored.get("excluded"):
             continue
         proc = run(["gh", "api", f"repos/{repo}/pulls/{key}"], capture_output=True)
         if proc.returncode != 0:
@@ -855,19 +849,16 @@ def cmd_pr_discover(args) -> int:
     tracker.data["prsDiscoveredAt"] = stamp
     tracker.save()
 
-    overrides = shared_overrides(tracker.site) if not args.no_overrides else {}
+    tracks = shared_tracks(tracker.site) if not args.no_overrides else {}
     tracked = {
         d["source"].get("number"): d
         for d in tracker.data["docs"]
         if d["kind"] == "github_pr" and d["source"].get("repo") == repo
     }
     to_track, to_archive, judge = [], [], []
+    counts = {label: 0 for label in [*PRIORITY_LABELS.values(), "unsorted"]}
     for key, stored in sorted(prs.items(), key=lambda kv: int(kv[0])):
         number = int(key)
-        override = overrides.get(number) or {}
-        if override.get("hidden"):
-            continue
-        priority = effective_priority(stored, override)
         doc = tracked.get(number)
         if stored["state"] != "open":
             if doc and not doc.get("archivedAt"):
@@ -879,30 +870,26 @@ def cmd_pr_discover(args) -> int:
                     }
                 )
             continue
-        if priority is None:
+        if stored.get("excluded") and not doc:
+            continue
+        p = stored.get("priority")
+        counts[PRIORITY_LABELS[p] if p else "unsorted"] += 1
+        if p is None and not stored.get("excluded"):
             judge.append(
                 {
                     k: stored[k]
                     for k in ("number", "url", "title", "author", "tickets", "signals")
                 }
             )
-        elif not doc and override.get("track"):
+        if not doc and tracks.get(number):
             to_track.append(
                 {"number": number, "url": stored["url"], "title": stored["title"]}
             )
-    counts = {p: 0 for p in ("P1", "P2", "P3", "unclassified")}
-    for key, stored in prs.items():
-        if stored["state"] == "open" and not (overrides.get(int(key)) or {}).get(
-            "hidden"
-        ):
-            p = effective_priority(stored, overrides.get(int(key)))
-            counts[f"P{p}" if p else "unclassified"] += 1
     emit(
         {
-            "me": me,
             "openByPriority": counts,
             "new": new,
-            "upgraded": upgraded,
+            "excluded": excluded,
             "closed": closed,
             "needsJudgement": judge,
             "toTrack": to_track,
@@ -917,12 +904,17 @@ def cmd_pr_classify(args) -> int:
     stored = tracker.data.get("prs", {}).get(str(args.number))
     if not stored:
         die(f"PR {args.number} has not been discovered; run pr-discover first")
-    priority = int(args.priority.lstrip("Pp"))
-    if priority not in (1, 2, 3):
-        die("priority must be P1, P2 or P3")
-    stored.update(priority=priority, reason=args.reason, classifiedBy="agent")
+    choice = args.priority.strip().lower().replace(" ", "-").replace("_", "-")
+    if choice == EXCLUDE:
+        stored.update(priority=None, excluded=True, reason=args.reason, classifiedBy="agent")
+        print(f"#{args.number}: left out ({args.reason})")
+    elif choice in PRIORITY_NAMES:
+        priority = PRIORITY_NAMES[choice]
+        stored.update(priority=priority, excluded=False, reason=args.reason, classifiedBy="agent")
+        print(f"#{args.number}: {PRIORITY_LABELS[priority]} ({args.reason})")
+    else:
+        die("priority must be needs-review, not-right-now, unrelated or exclude")
     tracker.save()
-    print(f"#{args.number}: P{priority} ({args.reason})")
     return 0
 
 
@@ -977,12 +969,11 @@ def public_data(tracker: Tracker) -> dict:
 def public_prs(tracker: Tracker) -> list[dict]:
     docs_by_url = {d["url"].rstrip("/"): d["id"] for d in tracker.data["docs"]}
     result = []
-    me = tracker.data.get("prsMe")
     for pr in tracker.data.get("prs", {}).values():
-        if pr.get("author") == me:
+        doc = docs_by_url.get(pr["url"].rstrip("/"))
+        if pr.get("excluded") and not doc:
             continue
         row = {k: pr[k] for k in PUBLIC_PR_FIELDS if pr.get(k) is not None}
-        doc = docs_by_url.get(pr["url"].rstrip("/"))
         if doc:
             row["doc"] = doc
         result.append(row)
@@ -1219,7 +1210,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("pr-classify", help="set a PR's priority after judging it")
     p.add_argument("number", type=int)
-    p.add_argument("priority", help="P1, P2 or P3")
+    p.add_argument(
+        "priority", help="needs-review, not-right-now, unrelated, or exclude to leave it out"
+    )
     p.add_argument("--reason", required=True, help="one line, shown on the site")
     p.set_defaults(func=cmd_pr_classify)
 

@@ -11,40 +11,47 @@ const KIND_LABELS = {
 };
 
 let DATA = null;
-let READ = {};
 let STORAGE_KEY = "project-tracker:read";
 let SHOW_ARCHIVED = false;
+let SHOW_HIDDEN = false;
+let DOC_NOTICE = {};
 
 // ------------------------------------------------------------------ read state
 
-function loadRead() {
+// Read marks used to live in localStorage. Copy any left there into the reader's choices
+// once, then drop them.
+function migrateLocalRead() {
+  let local = null;
   try {
-    READ = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+    local = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
   } catch (e) {
-    READ = {};
+    return;
   }
-}
-
-function saveRead() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(READ));
-  } catch (e) {
-    /* private window or blocked storage: marks last for this page view only */
+  if (!local || typeof local !== "object") return;
+  const marks = {};
+  for (const [id, stamp] of Object.entries(local)) {
+    if (Prefs.readStamp(id) == null) marks[id] = stamp;
   }
+  const done = () => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      /* blocked storage */
+    }
+  };
+  if (Object.keys(marks).length) Prefs.setRead(marks).then(() => Prefs.error() || done());
+  else done();
 }
 
 // An entry the agent rewrote since you read it counts as unread again.
 function isUnread(entry) {
-  return READ[entry.id] !== entry.updated;
+  return Prefs.readStamp(entry.id) !== entry.updated;
 }
 
 function setRead(entries, read) {
-  for (const entry of entries) {
-    if (read) READ[entry.id] = entry.updated;
-    else delete READ[entry.id];
-  }
-  saveRead();
-  render();
+  const marks = {};
+  for (const entry of entries) marks[entry.id] = read ? entry.updated : null;
+  Prefs.setRead(marks);
 }
 
 // ------------------------------------------------------------------ helpers
@@ -92,6 +99,25 @@ function external(url, label) {
   return `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(label)} <span aria-hidden="true">↗</span></a>`;
 }
 
+function isHidden(doc) {
+  return Boolean(Prefs.doc(doc.id).hidden);
+}
+
+async function setHidden(docId, hidden) {
+  delete DOC_NOTICE[docId];
+  try {
+    await Prefs.setDoc(docId, { hidden });
+  } catch (err) {
+    DOC_NOTICE[docId] = err.message;
+    render();
+  }
+}
+
+function hideButton(doc) {
+  const hidden = isHidden(doc);
+  return `<button class="btn btn-small" data-action="${hidden ? "unhide" : "hide"}" data-id="${esc(doc.id)}">${hidden ? "Unhide" : "Hide"}</button>`;
+}
+
 // ------------------------------------------------------------------ views
 
 function sourceRow(doc) {
@@ -100,19 +126,21 @@ function sourceRow(doc) {
   const latest = latestStart(doc.id);
   const headline = entries.length ? entries[0].title : "No changes logged yet";
   return `
-    <li class="source ${doc.archivedAt ? "is-archived" : ""}">
+    <li class="source ${doc.archivedAt ? "is-archived" : ""} ${isHidden(doc) ? "is-hidden" : ""}">
       <div class="source-date">${latest ? esc(shortDate(latest)) : "—"}</div>
       <div class="source-body">
+        ${DOC_NOTICE[doc.id] ? `<p class="notice">${esc(DOC_NOTICE[doc.id])}</p>` : ""}
         <div class="source-title">
           <a href="#doc=${encodeURIComponent(doc.id)}">${esc(doc.name)}</a>
           ${unread ? `<span class="pill unread-pill">${unread} unread</span>` : ""}
-          <span class="kind">${esc(KIND_LABELS[doc.kind] || doc.kind)}</span>
           ${archivedPill(doc)}
+          <span class="kind source-kind">${esc(KIND_LABELS[doc.kind] || doc.kind)}</span>
         </div>
         <div class="source-headline">${inline(headline)}</div>
         <div class="source-links">
           ${external(doc.url, "Open doc")}
           <a href="#doc=${encodeURIComponent(doc.id)}">Change log (${entries.length})</a>
+          ${hideButton(doc)}
         </div>
       </div>
     </li>`;
@@ -124,9 +152,14 @@ function archivedPill(doc) {
   return `<span class="pill archived-pill"${why}>Archived ${esc(shortDate(doc.archivedAt))}</span>`;
 }
 
+// Archived docs are shown only on request, and so are the reader's hidden ones.
+function listedDoc(doc) {
+  return (SHOW_ARCHIVED || !doc.archivedAt) && (SHOW_HIDDEN || !isHidden(doc));
+}
+
 function visibleEntries() {
-  const hidden = new Set(DATA.docs.filter((d) => d.archivedAt && !SHOW_ARCHIVED).map((d) => d.id));
-  return DATA.entries.filter((e) => !hidden.has(e.doc));
+  const listed = new Set(DATA.docs.filter(listedDoc).map((d) => d.id));
+  return DATA.entries.filter((e) => listed.has(e.doc));
 }
 
 function renderSources() {
@@ -134,14 +167,22 @@ function renderSources() {
     (latestStart(b.id) || "").localeCompare(latestStart(a.id) || "") || a.name.localeCompare(b.name);
   const active = DATA.docs.filter((d) => !d.archivedAt).sort(byLatest);
   const archived = DATA.docs.filter((d) => d.archivedAt).sort(byLatest);
+  const hiddenCount = DATA.docs.filter((d) => (SHOW_ARCHIVED || !d.archivedAt) && isHidden(d)).length;
   const unreadTotal = visibleEntries().filter(isUnread).length;
+  const activeListed = active.filter(listedDoc);
+  const archivedListed = archived.filter(listedDoc);
 
-  const toggle = archived.length
-    ? `<p class="archived-toggle"><button class="btn btn-small" data-action="toggle-archived">${
-        SHOW_ARCHIVED ? "Hide" : "Show"} ${archived.length} archived</button></p>`
-    : "";
-  const archivedList = SHOW_ARCHIVED && archived.length
-    ? `<h2 class="section-head">Archived</h2><ul class="sources">${archived.map(sourceRow).join("")}</ul>`
+  const toggles = [
+    archived.length
+      ? `<button class="btn btn-small" data-action="toggle-archived">${SHOW_ARCHIVED ? "Hide" : "Show"} ${archived.length} archived</button>`
+      : "",
+    hiddenCount
+      ? `<button class="btn btn-small" data-action="toggle-hidden">${SHOW_HIDDEN ? "Hide" : "Show"} ${hiddenCount} hidden</button>`
+      : "",
+  ].join("");
+  const toggle = toggles ? `<p class="archived-toggle">${toggles}</p>` : "";
+  const archivedList = SHOW_ARCHIVED && archivedListed.length
+    ? `<h2 class="section-head">Archived</h2><ul class="sources">${archivedListed.map(sourceRow).join("")}</ul>`
     : "";
 
   return `
@@ -149,7 +190,8 @@ function renderSources() {
       <h1>Sources</h1>
       ${unreadTotal ? `<button class="btn accent-2" data-action="read-all">Mark all ${unreadTotal} read</button>` : ""}
     </div>
-    ${active.length ? `<ul class="sources">${active.map(sourceRow).join("")}</ul>` : `<p class="empty">No active docs.</p>`}
+    ${Prefs.error() ? `<p class="notice">${esc(Prefs.error())}</p>` : ""}
+    ${activeListed.length ? `<ul class="sources">${activeListed.map(sourceRow).join("")}</ul>` : `<p class="empty">No active docs${hiddenCount && !SHOW_HIDDEN ? " you haven't hidden" : ""}.</p>`}
     ${toggle}
     ${archivedList}`;
 }
@@ -165,10 +207,10 @@ function renderEntry(entry) {
     <article class="entry ${unread ? "is-unread" : ""}" id="e-${esc(entry.id)}">
       <header class="entry-head">
         <span class="dot" aria-hidden="true"></span>
-        <time class="mono" datetime="${esc(entry.start)}">${esc(start)}${span}</time>
         <h2>${inline(entry.title)}</h2>
         <button class="btn btn-small" data-action="toggle" data-id="${esc(entry.id)}">${unread ? "Mark read" : "Mark unread"}</button>
       </header>
+      <time class="entry-time mono" datetime="${esc(entry.start)}">${esc(start)}${span}</time>
       ${actors}
       <ul class="bullets">${entry.bullets.map((b) => `<li>${inline(b)}</li>`).join("")}</ul>
       ${links ? `<div class="entry-links">${links}</div>` : ""}
@@ -194,7 +236,10 @@ function renderDoc(docId) {
           ${external(doc.url, "Open doc")}
           <span>${coverage}</span>
           ${doc.archivedReason ? `<span>${inline(doc.archivedReason)}</span>` : ""}
+          ${isHidden(doc) ? `<span class="pill archived-pill">Hidden</span>` : ""}
+          ${hideButton(doc)}
         </p>
+        ${DOC_NOTICE[doc.id] ? `<p class="notice">${esc(DOC_NOTICE[doc.id])}</p>` : ""}
       </div>
       ${unread ? `<button class="btn accent-2" data-action="read-doc" data-id="${esc(doc.id)}">Mark all ${unread} read</button>` : ""}
     </div>
@@ -231,6 +276,11 @@ document.addEventListener("click", (event) => {
   } else if (action === "toggle-archived") {
     SHOW_ARCHIVED = !SHOW_ARCHIVED;
     render();
+  } else if (action === "toggle-hidden") {
+    SHOW_HIDDEN = !SHOW_HIDDEN;
+    render();
+  } else if (action === "hide" || action === "unhide") {
+    setHidden(button.dataset.id, action === "hide");
   }
 });
 
@@ -239,13 +289,21 @@ window.addEventListener("hashchange", () => {
   window.scrollTo(0, 0);
 });
 
+Prefs.onChange(() => {
+  const hash = location.hash.slice(1);
+  if (hash === "prs") Prs.repaint();
+  else if (hash !== "questions") render();
+});
+Prefs.load();
+window.addEventListener("focus", () => Prefs.load());
+
 render();
 fetch("data.json", { cache: "no-store" })
   .then((r) => r.json())
   .then((data) => {
     DATA = data;
     STORAGE_KEY = `${data.project.site}:read`;
-    loadRead();
+    Prefs.ready().then(() => Prefs.error() || migrateLocalRead());
     document.title = data.project.title;
     document.getElementById("brand").textContent = data.project.title;
     document.getElementById("freshness").textContent = `Updated ${longDate(data.generatedAt)}`;
