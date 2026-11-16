@@ -257,7 +257,7 @@ Publishing never touches it. Run `python3 -I <skill>/scripts/oq.py --help` for e
 - Every write is compare-and-set. If the user edited the same question in the browser
   meanwhile, oq.py re-reads it and applies your change on top, so their edit survives.
 - After each change oq.py exports the list to the project's `openQuestionsFile` (the
-  URSSAF one is `~/mutagen/roverspace/URSSAF/open-questions.md`) and to
+  URSSAF one is `~/mutagen/roverspace/urssaf/open-questions.md`) and to
   `<data dir>/_state/open-questions.json`. That file is generated: read and grep it, but
   never edit it, since the next export overwrites it. The shared store keeps no history,
   so the export is the backup. To restore a question, re-run `oq.py import` on an old

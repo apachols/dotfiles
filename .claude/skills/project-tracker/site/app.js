@@ -131,14 +131,13 @@ function sourceRow(doc) {
       <div class="source-body">
         ${DOC_NOTICE[doc.id] ? `<p class="notice">${esc(DOC_NOTICE[doc.id])}</p>` : ""}
         <div class="source-title">
-          <a href="#doc=${encodeURIComponent(doc.id)}">${esc(doc.name)}</a>
+          ${external(doc.url, doc.name)}
           ${unread ? `<span class="pill unread-pill">${unread} unread</span>` : ""}
           ${archivedPill(doc)}
           <span class="kind source-kind">${esc(KIND_LABELS[doc.kind] || doc.kind)}</span>
         </div>
         <div class="source-headline">${inline(headline)}</div>
         <div class="source-links">
-          ${external(doc.url, "Open doc")}
           <a href="#doc=${encodeURIComponent(doc.id)}">Change log (${entries.length})</a>
           ${hideButton(doc)}
         </div>

@@ -96,7 +96,7 @@ h1 { font-size: 1.6em; margin: 0 0 4px; letter-spacing: -.01em; }
 .source-date { font-family: var(--mono); color: var(--accent-2); padding-top: 2px; }
 .source-title { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-weight: 600; font-size: 1.08em; }
 .source-headline { color: var(--muted); margin: 2px 0 6px; }
-.source-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: .9em; }
+.source-links { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; font-size: .82em; }
 .source-links .btn-small { margin-left: auto; }
 .source-kind { margin-left: auto; color: var(--muted); background: none; padding: 0; font-weight: 500; }
 
