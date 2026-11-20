@@ -86,3 +86,33 @@ text exact.
 - Don't import model classes; shell_plus auto-imports them.
 - Use `.last()` to grab the most recent stay / conversation / etc. Test cases build their data
   from fixtures, so the newest record is usually the right one.
+- When several cases run the same lookup, write it once as a function in a `## Before testing`
+  bullet (paste once per shell_plus session) and have each case's block just call it, e.g.
+  `show_order()`. Put imports that aren't models inside the function body.
+- Print readable output: one piece of information per `print`, each with a label. Print a dict
+  or list as a labeled header followed by one indented `key: value` line per entry, never as
+  a raw `print(some_dict)`.
+
+```python
+def show_order():
+    from orders.application_layer.interface import OrderInterface
+    c = Conversation.objects.last()
+    oid = c.request_set.last().order_id
+    o = OrderInterface().get_order(oid)
+    latest = {f.type: f.amount for f in o.financial_line_items}
+    total = {f.type: f.amount for f in OrderInterface().total_order(oid).financial_line_items}
+    turnover = sum(total.get(k, 0) for k in ("provider_payment", "rover_fee", "withholding"))
+    print("latest order", oid)
+    print("status", o.status.name)
+    print("owner amount", o.amount)
+    print("latest order lines:")
+    for k, v in latest.items(): print(f"  {k}: {v}")
+    print("completed total lines:")
+    for k, v in total.items(): print(f"  {k}: {v}")
+    print("turnover", turnover)
+
+show_order()
+```
+
+- Keep a function body free of blank lines: the console ends the block at the first one. Leave
+  one blank line after the function, before the call.
