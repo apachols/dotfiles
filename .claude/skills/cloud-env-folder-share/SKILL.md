@@ -35,7 +35,7 @@ Then, per environment:
   is `Available`, use it and say so; otherwise ask which. If none is running, ask the user to
   start one.
 - **Roverspace**: ask for the workspace name and their Coder username. The host is
-  `devcontainer.<workspace>.<coder-user>.coder`. If `~/.ssh/config` or the user names a
+  `dev.<workspace>.<coder-user>.coder`. If `~/.ssh/config` or the user names a
   different host, use that.
 
 ## Step 3: Preflight

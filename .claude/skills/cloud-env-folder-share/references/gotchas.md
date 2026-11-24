@@ -45,7 +45,7 @@ Why each step in `scripts/cloud-env-folder-share.sh` exists. Read this when a sy
 - **A repo rebuild deletes the link.** A fresh clone, workspace rebuild or `git clean` removes
   `/workspaces/web/.mutagen`. A bare `mutagen sync resume` then loops on the cross-device error
   forever. That's why `up` stages the agent before resuming, not only before creating.
-- **Host names need the Coder VPN.** With Coder Connect up, the devcontainer is reachable as
-  `devcontainer.<workspace>.<coder-user>.coder`.
+- **Host names need the Coder VPN.** With Coder Connect up, the devcontainer (agent `dev`) is reachable as
+  `dev.<workspace>.<coder-user>.coder`.
 - **Roverspaces are in beta,** so these workarounds depend on where ssh lands and how the
   filesystem is mounted. If a sync breaks after a Roverspace update, check those two first.

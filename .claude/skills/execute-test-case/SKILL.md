@@ -47,7 +47,7 @@ Never store state inside the skill directory — it is shared via git.
 
 Do this before capturing the spec or opening a browser. The app host is not always
 `rover.local:8001`. A Roverspace sets `URI_AUTHORITY` (e.g.
-`devcontainer.<workspace>.<owner>.coder:8001`) in the `web` container, and URLs the app builds
+`dev.<workspace>.<owner>.coder:8001`) in the `web` container, and URLs the app builds
 without a request (API `url` fields, `/api/v7/frontend/current-user/`) use that host. Browsing at
 `rover.local` then mixes two hosts on one page, and code that compares absolute URLs as strings
 breaks — e.g. owner-side pages decide the owner is the provider.
@@ -66,7 +66,7 @@ Then:
 1. **Rewrite every link.** In the test case section, "Before testing", fixture entry points, and
    any URL you build yourself, replace the `rover.local:8001` host with `HOST`. Keep scheme, path
    and query. "Go to `http://rover.local:8001/become-a-sitter`" becomes "Go to
-   `http://devcontainer.<workspace>.<owner>.coder:8001/become-a-sitter`". Execute the rewritten
+   `http://dev.<workspace>.<owner>.coder:8001/become-a-sitter`". Execute the rewritten
    instruction, never the original.
 2. **Map the host for the browser** (only when `HOST` is not `rover.local:8001`). The Roverspace
    has no DNS for that name, but nginx accepts it as the Host header, so point it at loopback.
